@@ -148,6 +148,28 @@ http://localhost:8501
 如果不配置 API key，系统会自动使用 Demo Mode，本地和 Streamlit Cloud 都能正常运行。
 Demo Mode 使用 RAG 检索 + 财务规则回答问题，适合公开演示；配置 API key 后，系统会将检索证据和财务摘要传给模型，生成更自然、更专业的回答。
 
+### 临时测试方式
+
+网站左侧边栏提供临时 API 配置区：
+
+```text
+AI 模式选择 OpenAI 或 DeepSeek
+输入 API_KEY、MODEL、BASE_URL
+点击“测试 API 连接”
+```
+
+这种方式只保存在当前网页会话中，不会写入 GitHub，刷新页面或重新打开会话后需要重新输入。
+
+### 正式部署方式
+
+正式展示建议使用 Streamlit Cloud 的 App Secrets：
+
+```text
+Streamlit Cloud → App → Settings → Secrets
+```
+
+仓库里提供了 `.streamlit/secrets.toml.example` 作为模板。真实的 `.streamlit/secrets.toml` 已被 `.gitignore` 排除，不会提交到 GitHub。
+
 OpenAI：
 
 ```text

@@ -594,6 +594,10 @@ def retrieve_context(question: str, text: str, df: pd.DataFrame, top_k: int = 4)
 
 
 def get_secret(name: str) -> str | None:
+    session_key = f"manual_{name}"
+    session_value = st.session_state.get(session_key)
+    if session_value:
+        return str(session_value).strip()
     try:
         value = st.secrets.get(name)
         if value:
@@ -635,6 +639,11 @@ def call_llm(provider: str, prompt: str) -> tuple[str, bool]:
         return result["choices"][0]["message"]["content"], True
     except (urllib.error.URLError, urllib.error.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
         return f"{provider} 调用失败，已回退 demo mode。错误信息：{exc}", False
+
+
+def test_llm_connection(provider: str) -> tuple[str, bool]:
+    prompt = "请用一句中文回答：FinanceDoc AI 的 API 连接测试成功。"
+    return call_llm(provider, prompt)
 
 
 def answer_question(question: str, df: pd.DataFrame, text: str, risks: list[RiskItem]) -> str:
@@ -1248,6 +1257,15 @@ def render_api_section(provider: str) -> None:
     st.info(
         "如果未配置 API key，网站仍会用 RAG 检索 + 财务规则回答问题；配置 OpenAI 或 DeepSeek 后，回答会基于同样证据交给模型生成，适合对外展示更自然、更专业的分析。"
     )
+    st.markdown(
+        """
+        **安全说明**
+
+        - 不要把真实 API key 写进 GitHub 代码或 README。
+        - 临时测试可以在左侧边栏输入 API key，只保存在当前网页会话里。
+        - 正式部署建议在 Streamlit Cloud 的 App Secrets 中配置。
+        """
+    )
 
 
 def render_one_page(provider: str) -> None:
@@ -1268,6 +1286,38 @@ def render_sidebar_settings() -> str:
         "[概览](#overview) · [数据](#data) · [摘要](#summary) · [风险](#risk) · [问答](#qa) · [Agent](#agents) · [导出](#export)"
     )
     provider = st.sidebar.selectbox("AI 模式", list(LLM_PROVIDERS.keys()))
+    if provider != "Demo Mode":
+        provider_config = LLM_PROVIDERS[provider]
+        api_key_env = provider_config["api_key_env"]
+        model_env = provider_config["model_env"]
+        base_url_env = provider_config["base_url_env"]
+        st.sidebar.markdown("**临时 API 配置**")
+        st.sidebar.text_input(
+            f"{api_key_env}",
+            type="password",
+            key=f"manual_{api_key_env}",
+            help="只保存在当前 Streamlit 会话，不会写入 GitHub。正式部署请使用 Streamlit Secrets。",
+        )
+        st.sidebar.text_input(
+            f"{model_env}",
+            value=get_secret(model_env) or provider_config["default_model"],
+            key=f"manual_{model_env}",
+        )
+        st.sidebar.text_input(
+            f"{base_url_env}",
+            value=get_secret(base_url_env) or provider_config["default_base_url"],
+            key=f"manual_{base_url_env}",
+        )
+        if st.sidebar.button("测试 API 连接"):
+            answer, used_llm = test_llm_connection(provider)
+            if used_llm:
+                st.sidebar.success("API 连接成功")
+                st.sidebar.caption(answer[:120])
+            else:
+                st.sidebar.error("API 连接失败或未配置")
+                st.sidebar.caption(answer[:180])
+    else:
+        st.sidebar.info("Demo Mode 不需要 API key。")
     scenario_names = list(DEMO_SCENARIOS.keys())
     selected_scenario = st.sidebar.selectbox(
         "内置样例数据",
