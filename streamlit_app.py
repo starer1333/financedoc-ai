@@ -633,8 +633,21 @@ def call_llm(provider: str, prompt: str) -> tuple[str, bool]:
         with urllib.request.urlopen(request, timeout=25) as response:
             result = json.loads(response.read().decode("utf-8"))
         return result["choices"][0]["message"]["content"], True
-    except (urllib.error.URLError, urllib.error.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
-        return f"{provider} 调用失败，已回退 demo mode。错误信息：{exc}", False
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            return (
+                "DeepSeek API 已发起请求，但鉴权失败（401 Unauthorized）。"
+                "请检查 Streamlit Secrets 中的 DEEPSEEK 或 DEEPSEEK_API_KEY 是否为官方 DeepSeek 密钥，"
+                "以及 DEEPSEEK_BASE_URL 是否与该密钥所属平台匹配。当前回答已临时使用本地规则生成。",
+                False,
+            )
+        if exc.code == 402:
+            return "DeepSeek API 已发起请求，但账户余额或额度不足（402）。当前回答已临时使用本地规则生成。", False
+        if exc.code == 404:
+            return "DeepSeek API 已发起请求，但模型或接口地址不存在（404）。请检查 DEEPSEEK_MODEL 和 DEEPSEEK_BASE_URL。当前回答已临时使用本地规则生成。", False
+        return f"DeepSeek API 已发起请求，但接口返回 HTTP {exc.code}。当前回答已临时使用本地规则生成。", False
+    except (urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError) as exc:
+        return f"DeepSeek API 调用未完成，当前回答已临时使用本地规则生成。错误信息：{exc}", False
 
 
 def test_llm_connection(provider: str) -> tuple[str, bool]:

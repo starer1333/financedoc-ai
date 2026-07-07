@@ -194,6 +194,25 @@ test_documents/deepseek_api_probe_instructions.md
 
 如果 DeepSeek 正常接入，回答应能识别暗号 `DS-PROBE-7429`，并说明主要问题是现金流质量、回款压力和存货周转，而不是单纯收入规模下降。
 
+## 401 Unauthorized 排查
+
+如果网页回答中出现 `HTTP Error 401: Unauthorized`，说明应用已经向 DeepSeek 接口发起请求，但接口拒绝了密钥。常见原因：
+
+- `DEEPSEEK` 或 `DEEPSEEK_API_KEY` 填错、复制不完整，或包含多余空格。
+- 这个 key 不是官方 DeepSeek 平台的 key。
+- key 来自第三方聚合平台，但 `DEEPSEEK_BASE_URL` 仍然写成了官方地址。
+- key 已失效、被禁用，或该平台要求使用不同的鉴权方式。
+
+如果使用官方 DeepSeek，建议 Secrets 写法：
+
+```toml
+DEEPSEEK = "sk-你的真实密钥"
+DEEPSEEK_MODEL = "deepseek-v4-flash"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/chat/completions"
+```
+
+如果使用第三方平台提供的 DeepSeek 模型，需要把 `DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL` 改成该平台文档要求的值。
+
 ## 已实现升级
 
 - DeepSeek API 接入
