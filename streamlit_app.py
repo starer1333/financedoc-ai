@@ -143,6 +143,7 @@ DEMO_SCENARIOS = {
 LLM_PROVIDERS = {
     "Demo Mode": {
         "api_key_env": "",
+        "api_key_envs": [],
         "base_url_env": "",
         "model_env": "",
         "default_base_url": "",
@@ -150,6 +151,7 @@ LLM_PROVIDERS = {
     },
     "OpenAI": {
         "api_key_env": "OPENAI_API_KEY",
+        "api_key_envs": ["OPENAI_API_KEY", "OPENAI"],
         "base_url_env": "OPENAI_BASE_URL",
         "model_env": "OPENAI_MODEL",
         "default_base_url": "https://api.openai.com/v1/chat/completions",
@@ -157,10 +159,19 @@ LLM_PROVIDERS = {
     },
     "DeepSeek": {
         "api_key_env": "DEEPSEEK_API_KEY",
+        "api_key_envs": ["DEEPSEEK_API_KEY", "DEEPSEEK"],
         "base_url_env": "DEEPSEEK_BASE_URL",
         "model_env": "DEEPSEEK_MODEL",
         "default_base_url": "https://api.deepseek.com/chat/completions",
-        "default_model": "deepseek-chat",
+        "default_model": "deepseek-v4-flash",
+    },
+    "Kimi": {
+        "api_key_env": "KIMI_API_KEY",
+        "api_key_envs": ["KIMI_API_KEY", "KIMI", "MOONSHOT_API_KEY", "MOONSHOT"],
+        "base_url_env": "KIMI_BASE_URL",
+        "model_env": "KIMI_MODEL",
+        "default_base_url": "https://api.moonshot.cn/v1/chat/completions",
+        "default_model": "moonshot-v1-8k",
     },
 }
 
@@ -306,20 +317,21 @@ def apply_demo_scenario(name: str) -> None:
 
 def provider_is_configured(provider: str) -> bool:
     provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS["Demo Mode"])
-    api_key_env = provider_config["api_key_env"]
-    if not api_key_env:
+    api_key_envs = provider_config.get("api_key_envs", [])
+    if not api_key_envs:
         return True
-    return bool(get_secret(api_key_env))
+    return bool(get_first_secret(api_key_envs))
 
 
 def provider_status_label(provider: str) -> str:
     if provider == "Demo Mode":
         return "Demo Mode：已启用，本地 RAG + 规则分析"
     provider_config = LLM_PROVIDERS[provider]
-    api_key_env = provider_config["api_key_env"]
+    api_key_envs = provider_config.get("api_key_envs", [provider_config["api_key_env"]])
+    env_label = " / ".join(api_key_envs)
     if provider_is_configured(provider):
-        return f"{provider}：已配置 {api_key_env}，可调用真实模型"
-    return f"{provider}：未配置 {api_key_env}，会自动回退 Demo Mode"
+        return f"{provider}：已配置密钥（支持 {env_label}），可调用真实模型"
+    return f"{provider}：未配置密钥（支持 {env_label}），会自动回退 Demo Mode"
 
 
 def normalize_name(name: object) -> str:
@@ -607,17 +619,34 @@ def get_secret(name: str) -> str | None:
     return os.getenv(name)
 
 
+def get_first_secret(names: list[str]) -> str | None:
+    for name in names:
+        value = get_secret(name)
+        if value:
+            return value
+    return None
+
+
+def normalize_chat_completions_url(base_url: str) -> str:
+    clean_url = base_url.rstrip("/")
+    if clean_url.endswith("/chat/completions"):
+        return clean_url
+    if clean_url.endswith("/v1"):
+        return f"{clean_url}/chat/completions"
+    return f"{clean_url}/chat/completions"
+
+
 def call_llm(provider: str, prompt: str) -> tuple[str, bool]:
     provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS["Demo Mode"])
-    api_key_env = provider_config["api_key_env"]
-    if not api_key_env:
+    api_key_envs = provider_config.get("api_key_envs", [])
+    if not api_key_envs:
         return "", False
 
-    api_key = get_secret(api_key_env)
+    api_key = get_first_secret(api_key_envs)
     if not api_key:
-        return f"未配置 {api_key_env}，当前自动使用 demo mode 回答。", False
+        return f"未配置 {' / '.join(api_key_envs)}，当前自动使用 demo mode 回答。", False
 
-    base_url = get_secret(provider_config["base_url_env"]) or provider_config["default_base_url"]
+    base_url = normalize_chat_completions_url(get_secret(provider_config["base_url_env"]) or provider_config["default_base_url"])
     model = get_secret(provider_config["model_env"]) or provider_config["default_model"]
     payload = {
         "model": model,
@@ -798,10 +827,14 @@ Accounting Agent、Risk Review Agent、Strategy Analyst Agent、Report Writer Ag
 
 
 def create_audit_workpaper(df: pd.DataFrame, text: str, risks: list[RiskItem], agent_outputs: dict[str, str]) -> str:
-    brief = create_brief(df, text, risks)
+    summary = build_financial_summary(df)
     agents = "\n\n".join(f"## {name}\n\n{content}" for name, content in agent_outputs.items())
+    risk_table = "\n".join(
+        f"- {item.level}｜{item.category}：{item.finding} 建议：{item.suggestion}" for item in risks
+    )
     checklist = "\n".join(
         [
+            "- 复核上传文件与样例数据的期间、口径和金额单位。",
             "- 核对收入确认政策与主要合同条款。",
             "- 抽查大额应收账款回款记录及期后回款。",
             "- 复核存货跌价准备和库龄结构。",
@@ -809,31 +842,114 @@ def create_audit_workpaper(df: pd.DataFrame, text: str, risks: list[RiskItem], a
             "- 对高风险事项补充管理层访谈问题。",
         ]
     )
-    return f"""{brief}
+    return f"""# FinanceDoc AI 财务分析与风险审阅底稿
+
+生成时间：{datetime.now().strftime("%Y-%m-%d %H:%M")}
+
+## 1. 审阅目的
+
+本底稿用于对上传或样例财务资料进行快速初筛，形成财务摘要、风险识别、RAG 问答依据和后续审阅清单。该底稿适用于面试展示、投研初筛、审计预审和商业分析场景。
+
+## 2. 数据来源与范围
+
+- 数据来源：网页上传文件或系统内置样例数据。
+- 分析对象：收入、成本、毛利、费用、净利润、经营现金流、资产负债、应收账款、存货等关键指标。
+- 分析方法：表格字段识别、文本关键词检索、规则化风险识别、RAG 证据检索和 Multi-Agent 分析。
+
+## 3. 关键财务摘要
+
+- 最新营业收入：{summary["latest_revenue"]}
+- 收入增速：{summary["revenue_growth"]}
+- 最新净利润：{summary["latest_net_profit"]}
+- 净利润增速：{summary["net_profit_growth"]}
+- 毛利率：{summary["gross_margin"]}
+- 净利率：{summary["net_margin"]}
+- 经营现金流：{summary["operating_cash_flow"]}
+- 现金利润转化率：{summary["cash_conversion"]}
+- 资产负债率：{summary["liability_ratio"]}
+- 费用率：{summary["expense_ratio"]}
+
+## 4. 风险识别结果
+
+{risk_table}
+
+## 5. 已执行审阅程序
+
+{checklist}
 
 ## 6. Multi-Agent 审阅意见
 
 {agents}
 
-## 7. 审计底稿检查清单
+## 7. 进一步追问问题
 
-{checklist}
+- 收入增长或下滑主要来自价格、销量、客户结构还是行业周期？
+- 净利润变化是否由主营业务驱动，还是由减值、投资收益或非经常性项目驱动？
+- 经营现金流与净利润是否匹配，应收账款和存货是否出现异常累积？
+- 审计意见、关联交易、担保、诉讼和监管问询是否存在重大影响？
+- 如果接入 LLM API，哪些段落需要进入 RAG 检索上下文以提高回答可信度？
+
+## 8. 初步结论
+
+系统已基于当前资料完成自动化初筛。高风险和中风险事项应作为后续人工复核重点，特别是收入确认、现金流质量、资产负债结构、关联交易、存货和应收账款变化。
+
+## 9. 使用限制
+
+本底稿由规则、RAG 检索和可选 LLM API 辅助生成，不替代正式审计程序、法律意见或投资建议。所有结论均应结合原始文件、管理层访谈、外部行业数据和人工专业判断进一步复核。
 """
 
 
 def create_docx_bytes(markdown_text: str) -> bytes:
     from docx import Document
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.shared import Cm, Pt
 
     document = Document()
+    section = document.sections[0]
+    section.top_margin = Cm(2.2)
+    section.bottom_margin = Cm(2.2)
+    section.left_margin = Cm(2.2)
+    section.right_margin = Cm(2.2)
+
+    styles = document.styles
+    for style_name, size, bold in [
+        ("Normal", 10.5, False),
+        ("Title", 20, True),
+        ("Heading 1", 16, True),
+        ("Heading 2", 13, True),
+        ("List Bullet", 10.5, False),
+    ]:
+        style = styles[style_name]
+        style.font.name = "Microsoft YaHei"
+        style._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft YaHei")
+        style.font.size = Pt(size)
+        style.font.bold = bold
+        if hasattr(style, "paragraph_format"):
+            style.paragraph_format.line_spacing = 1.25
+            style.paragraph_format.space_after = Pt(6)
+
+    def apply_paragraph_font(paragraph, size: float = 10.5, bold: bool = False) -> None:
+        for run in paragraph.runs:
+            run.font.name = "Microsoft YaHei"
+            run._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft YaHei")
+            run.font.size = Pt(size)
+            run.font.bold = bold
+
     for line in markdown_text.splitlines():
         if line.startswith("# "):
-            document.add_heading(line[2:].strip(), level=1)
+            paragraph = document.add_paragraph(line[2:].strip(), style="Title")
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            apply_paragraph_font(paragraph, 20, True)
         elif line.startswith("## "):
-            document.add_heading(line[3:].strip(), level=2)
+            paragraph = document.add_heading(line[3:].strip(), level=2)
+            apply_paragraph_font(paragraph, 13, True)
         elif line.startswith("- "):
-            document.add_paragraph(line[2:].strip(), style="List Bullet")
+            paragraph = document.add_paragraph(line[2:].strip(), style="List Bullet")
+            apply_paragraph_font(paragraph)
         elif line.strip():
-            document.add_paragraph(line.strip())
+            paragraph = document.add_paragraph(line.strip())
+            apply_paragraph_font(paragraph)
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
@@ -1289,6 +1405,7 @@ def render_sidebar_settings() -> str:
     if provider != "Demo Mode":
         provider_config = LLM_PROVIDERS[provider]
         api_key_env = provider_config["api_key_env"]
+        api_key_envs = provider_config.get("api_key_envs", [api_key_env])
         model_env = provider_config["model_env"]
         base_url_env = provider_config["base_url_env"]
         st.sidebar.markdown("**临时 API 配置**")
@@ -1296,8 +1413,11 @@ def render_sidebar_settings() -> str:
             f"{api_key_env}",
             type="password",
             key=f"manual_{api_key_env}",
-            help="只保存在当前 Streamlit 会话，不会写入 GitHub。正式部署请使用 Streamlit Secrets。",
+            help=f"只保存在当前 Streamlit 会话，不会写入 GitHub。Secrets 支持：{', '.join(api_key_envs)}。",
         )
+        alias_envs = [name for name in api_key_envs if name != api_key_env]
+        if alias_envs:
+            st.sidebar.caption(f"也支持在 Secrets 中使用：{', '.join(alias_envs)}")
         st.sidebar.text_input(
             f"{model_env}",
             value=get_secret(model_env) or provider_config["default_model"],
