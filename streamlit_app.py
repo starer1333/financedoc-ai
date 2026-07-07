@@ -143,11 +143,11 @@ DEMO_SCENARIOS = {
 LLM_PROVIDERS = {
     "DeepSeek": {
         "api_key_env": "DEEPSEEK_API_KEY",
-        "api_key_envs": ["DEEPSEEK_API_KEY", "DEEPSEEK"],
+        "api_key_envs": ["DEEPSEEK_API_KEY", "DEEPSEEK", "SILICONFLOW_API_KEY", "SILICONFLOW"],
         "base_url_env": "DEEPSEEK_BASE_URL",
         "model_env": "DEEPSEEK_MODEL",
-        "default_base_url": "https://api.deepseek.com/chat/completions",
-        "default_model": "deepseek-v4-flash",
+        "default_base_url": "https://api.siliconflow.cn/v1/chat/completions",
+        "default_model": "deepseek-ai/DeepSeek-V3.2",
     }
 }
 
@@ -637,8 +637,9 @@ def call_llm(provider: str, prompt: str) -> tuple[str, bool]:
         if exc.code == 401:
             return (
                 "DeepSeek API 已发起请求，但鉴权失败（401 Unauthorized）。"
-                "请检查 Streamlit Secrets 中的 DEEPSEEK 或 DEEPSEEK_API_KEY 是否为官方 DeepSeek 密钥，"
-                "以及 DEEPSEEK_BASE_URL 是否与该密钥所属平台匹配。当前回答已临时使用本地规则生成。",
+                "当前项目按硅基流动接口接入，请检查 Streamlit Secrets 中的 DEEPSEEK、DEEPSEEK_API_KEY "
+                "或 SILICONFLOW_API_KEY 是否为硅基流动 API 密钥，并确认 DEEPSEEK_BASE_URL 是否为 "
+                "https://api.siliconflow.cn/v1/chat/completions。当前回答已临时使用本地规则生成。",
                 False,
             )
         if exc.code == 402:

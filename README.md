@@ -152,18 +152,18 @@ Streamlit Cloud → App → Settings → Secrets
 
 仓库里提供了 `.streamlit/secrets.toml.example` 作为模板。真实的 `.streamlit/secrets.toml` 已被 `.gitignore` 排除，不会提交到 GitHub。
 
-DeepSeek：
+DeepSeek via 硅基流动：
 
 ```text
-DEEPSEEK=your_deepseek_key
-DEEPSEEK_MODEL=deepseek-v4-flash
-DEEPSEEK_BASE_URL=https://api.deepseek.com/chat/completions
+DEEPSEEK=your_siliconflow_api_key
+DEEPSEEK_MODEL=deepseek-ai/DeepSeek-V3.2
+DEEPSEEK_BASE_URL=https://api.siliconflow.cn/v1/chat/completions
 ```
 
 也可以使用：
 
 ```text
-DEEPSEEK_API_KEY=your_deepseek_key
+DEEPSEEK_API_KEY=your_siliconflow_api_key
 ```
 
 在 Streamlit Community Cloud 中，可把这些变量配置到 App Secrets。
@@ -171,9 +171,9 @@ DEEPSEEK_API_KEY=your_deepseek_key
 Streamlit Secrets 示例：
 
 ```toml
-DEEPSEEK = "your_deepseek_key"
-DEEPSEEK_MODEL = "deepseek-v4-flash"
-DEEPSEEK_BASE_URL = "https://api.deepseek.com/chat/completions"
+DEEPSEEK = "your_siliconflow_api_key"
+DEEPSEEK_MODEL = "deepseek-ai/DeepSeek-V3.2"
+DEEPSEEK_BASE_URL = "https://api.siliconflow.cn/v1/chat/completions"
 ```
 
 ## DeepSeek 接入验证文件
@@ -196,22 +196,22 @@ test_documents/deepseek_api_probe_instructions.md
 
 ## 401 Unauthorized 排查
 
-如果网页回答中出现 `HTTP Error 401: Unauthorized`，说明应用已经向 DeepSeek 接口发起请求，但接口拒绝了密钥。常见原因：
+如果网页回答中出现 `HTTP Error 401: Unauthorized`，说明应用已经向接口发起请求，但硅基流动拒绝了密钥。常见原因：
 
 - `DEEPSEEK` 或 `DEEPSEEK_API_KEY` 填错、复制不完整，或包含多余空格。
-- 这个 key 不是官方 DeepSeek 平台的 key。
-- key 来自第三方聚合平台，但 `DEEPSEEK_BASE_URL` 仍然写成了官方地址。
-- key 已失效、被禁用，或该平台要求使用不同的鉴权方式。
+- 这个 key 不是硅基流动平台生成的 API key。
+- `DEEPSEEK_BASE_URL` 仍然写成了 DeepSeek 官方地址，而不是硅基流动地址。
+- key 已失效、被禁用，或账户权限/额度不可用。
 
-如果使用官方 DeepSeek，建议 Secrets 写法：
+如果使用硅基流动，建议 Secrets 写法：
 
 ```toml
-DEEPSEEK = "sk-你的真实密钥"
-DEEPSEEK_MODEL = "deepseek-v4-flash"
-DEEPSEEK_BASE_URL = "https://api.deepseek.com/chat/completions"
+DEEPSEEK = "sk-你的硅基流动密钥"
+DEEPSEEK_MODEL = "deepseek-ai/DeepSeek-V3.2"
+DEEPSEEK_BASE_URL = "https://api.siliconflow.cn/v1/chat/completions"
 ```
 
-如果使用第三方平台提供的 DeepSeek 模型，需要把 `DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL` 改成该平台文档要求的值。
+如果你在硅基流动后台选择的是其他 DeepSeek 模型，把 `DEEPSEEK_MODEL` 改成硅基流动模型列表里的完整模型名即可。
 
 ## 已实现升级
 
