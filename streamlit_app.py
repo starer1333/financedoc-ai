@@ -92,6 +92,54 @@ DEFAULT_SAMPLE_ROWS = [
     },
 ]
 
+DEMO_SCENARIOS = {
+    "制造业｜利润修复与回款压力": {
+        "description": "收入恢复但应收账款和费用投入偏高，适合展示经营质量和现金流审阅。",
+        "text": "公司主营高端制造设备，2024 年收入有所恢复，但客户账期拉长，应收账款增加。管理层披露部分大客户验收延迟，存在现金流压力。审计关注收入确认、存货跌价准备、客户集中和关联交易披露。",
+        "rows": DEFAULT_SAMPLE_ROWS,
+    },
+    "SaaS｜高增长与亏损收窄": {
+        "description": "收入高速增长、研发投入高、经营现金流改善，适合展示成长型企业分析。",
+        "text": "公司提供企业级 SaaS 服务，订阅收入增长较快，续费率稳定。报告期内研发费用保持高位，销售费用率下降，经营现金流由负转正。风险关注客户集中、收入递延确认、资本化研发支出和数据合规。",
+        "rows": [
+            {"year": 2021, "revenue": 36000000, "cogs": 9000000, "gross_profit": 27000000, "operating_expense": 42000000, "sales_expense": 16000000, "admin_expense": 8200000, "r_and_d_expense": 17800000, "net_profit": -15200000, "operating_cash_flow": -11800000, "total_assets": 78000000, "total_liabilities": 36000000, "equity": 42000000, "inventory": 0, "receivables": 7200000},
+            {"year": 2022, "revenue": 59000000, "cogs": 13600000, "gross_profit": 45400000, "operating_expense": 56000000, "sales_expense": 21800000, "admin_expense": 9600000, "r_and_d_expense": 24600000, "net_profit": -8900000, "operating_cash_flow": -4200000, "total_assets": 104000000, "total_liabilities": 47000000, "equity": 57000000, "inventory": 0, "receivables": 11800000},
+            {"year": 2023, "revenue": 91000000, "cogs": 20000000, "gross_profit": 71000000, "operating_expense": 76000000, "sales_expense": 28600000, "admin_expense": 12400000, "r_and_d_expense": 35000000, "net_profit": -2600000, "operating_cash_flow": 1800000, "total_assets": 138000000, "total_liabilities": 62000000, "equity": 76000000, "inventory": 0, "receivables": 16400000},
+            {"year": 2024, "revenue": 128000000, "cogs": 28160000, "gross_profit": 99840000, "operating_expense": 93000000, "sales_expense": 32600000, "admin_expense": 14500000, "r_and_d_expense": 45900000, "net_profit": 4200000, "operating_cash_flow": 9600000, "total_assets": 176000000, "total_liabilities": 76500000, "equity": 99500000, "inventory": 0, "receivables": 22600000},
+        ],
+    },
+    "零售连锁｜库存周转与费用压力": {
+        "description": "收入小幅下滑、库存和费用承压，适合展示风险识别和周转分析。",
+        "text": "公司经营区域零售连锁门店，受客流下降和促销影响，收入下降、毛利率下降。报告期末存货增加，部分门店关闭并计提减值。风险关注存货跌价、租赁负债、费用控制和门店关闭损失。",
+        "rows": [
+            {"year": 2021, "revenue": 148000000, "cogs": 96200000, "gross_profit": 51800000, "operating_expense": 38600000, "sales_expense": 25200000, "admin_expense": 9000000, "r_and_d_expense": 0, "net_profit": 8600000, "operating_cash_flow": 10200000, "total_assets": 116000000, "total_liabilities": 59000000, "equity": 57000000, "inventory": 28800000, "receivables": 8600000},
+            {"year": 2022, "revenue": 156000000, "cogs": 103000000, "gross_profit": 53000000, "operating_expense": 41400000, "sales_expense": 27600000, "admin_expense": 9600000, "r_and_d_expense": 0, "net_profit": 7100000, "operating_cash_flow": 6600000, "total_assets": 124000000, "total_liabilities": 68400000, "equity": 55600000, "inventory": 34200000, "receivables": 9200000},
+            {"year": 2023, "revenue": 142000000, "cogs": 98700000, "gross_profit": 43300000, "operating_expense": 42800000, "sales_expense": 28900000, "admin_expense": 10100000, "r_and_d_expense": 0, "net_profit": 1200000, "operating_cash_flow": -1800000, "total_assets": 121000000, "total_liabilities": 75200000, "equity": 45800000, "inventory": 39800000, "receivables": 9800000},
+            {"year": 2024, "revenue": 135000000, "cogs": 95850000, "gross_profit": 39150000, "operating_expense": 43600000, "sales_expense": 29600000, "admin_expense": 10400000, "r_and_d_expense": 0, "net_profit": -3900000, "operating_cash_flow": -5200000, "total_assets": 113000000, "total_liabilities": 81500000, "equity": 31500000, "inventory": 42600000, "receivables": 10400000},
+        ],
+    },
+    "地产服务｜高负债与偿债压力": {
+        "description": "收入下降、负债率高、现金流紧张，适合展示审计风险和持续经营分析。",
+        "text": "公司为地产项目提供管理和配套服务，受行业下行影响，收入下降，回款周期延长。存在债务逾期、担保、诉讼和持续经营重大不确定性。审计重点关注资产减值、关联方资金占用、偿债压力和现金流预测。",
+        "rows": [
+            {"year": 2021, "revenue": 210000000, "cogs": 147000000, "gross_profit": 63000000, "operating_expense": 39800000, "sales_expense": 8600000, "admin_expense": 23800000, "r_and_d_expense": 0, "net_profit": 15400000, "operating_cash_flow": 9600000, "total_assets": 420000000, "total_liabilities": 278000000, "equity": 142000000, "inventory": 76000000, "receivables": 62000000},
+            {"year": 2022, "revenue": 188000000, "cogs": 139000000, "gross_profit": 49000000, "operating_expense": 41200000, "sales_expense": 8200000, "admin_expense": 25600000, "r_and_d_expense": 0, "net_profit": 5200000, "operating_cash_flow": 1800000, "total_assets": 438000000, "total_liabilities": 318000000, "equity": 120000000, "inventory": 93000000, "receivables": 82000000},
+            {"year": 2023, "revenue": 151000000, "cogs": 119000000, "gross_profit": 32000000, "operating_expense": 38600000, "sales_expense": 7600000, "admin_expense": 24800000, "r_and_d_expense": 0, "net_profit": -11600000, "operating_cash_flow": -18400000, "total_assets": 402000000, "total_liabilities": 334000000, "equity": 68000000, "inventory": 101000000, "receivables": 96000000},
+            {"year": 2024, "revenue": 132000000, "cogs": 109000000, "gross_profit": 23000000, "operating_expense": 36200000, "sales_expense": 7100000, "admin_expense": 23800000, "r_and_d_expense": 0, "net_profit": -21800000, "operating_cash_flow": -29600000, "total_assets": 368000000, "total_liabilities": 326000000, "equity": 42000000, "inventory": 106000000, "receivables": 104000000},
+        ],
+    },
+    "拟 IPO｜收入增长与关联交易审阅": {
+        "description": "高增长但关联交易和客户集中明显，适合展示 IPO 尽调视角。",
+        "text": "公司处于拟 IPO 阶段，收入增长较快，但前五大客户占比较高。报告期内存在关联交易、关联方采购和担保事项。审阅重点包括收入真实性、关联交易定价公允性、客户集中、供应商集中和内控有效性。",
+        "rows": [
+            {"year": 2021, "revenue": 68000000, "cogs": 40800000, "gross_profit": 27200000, "operating_expense": 13800000, "sales_expense": 4200000, "admin_expense": 5600000, "r_and_d_expense": 4000000, "net_profit": 8400000, "operating_cash_flow": 6200000, "total_assets": 96000000, "total_liabilities": 42000000, "equity": 54000000, "inventory": 12600000, "receivables": 15600000},
+            {"year": 2022, "revenue": 96000000, "cogs": 56640000, "gross_profit": 39360000, "operating_expense": 18600000, "sales_expense": 6200000, "admin_expense": 7200000, "r_and_d_expense": 5200000, "net_profit": 14200000, "operating_cash_flow": 10600000, "total_assets": 128000000, "total_liabilities": 56200000, "equity": 71800000, "inventory": 17800000, "receivables": 22800000},
+            {"year": 2023, "revenue": 138000000, "cogs": 80040000, "gross_profit": 57960000, "operating_expense": 26800000, "sales_expense": 9100000, "admin_expense": 9200000, "r_and_d_expense": 8500000, "net_profit": 22600000, "operating_cash_flow": 17100000, "total_assets": 176000000, "total_liabilities": 78600000, "equity": 97400000, "inventory": 25200000, "receivables": 34600000},
+            {"year": 2024, "revenue": 182000000, "cogs": 105560000, "gross_profit": 76440000, "operating_expense": 35600000, "sales_expense": 12400000, "admin_expense": 11600000, "r_and_d_expense": 11600000, "net_profit": 31400000, "operating_cash_flow": 23800000, "total_assets": 238000000, "total_liabilities": 105000000, "equity": 133000000, "inventory": 35600000, "receivables": 51200000},
+        ],
+    },
+}
+
 LLM_PROVIDERS = {
     "Demo Mode": {
         "api_key_env": "",
@@ -159,12 +207,23 @@ def configure_page() -> None:
         """
         <style>
         .main .block-container {
-            padding-top: 2rem;
+            padding-top: 1.25rem;
             padding-bottom: 3rem;
-            max-width: 1180px;
+            max-width: 1240px;
         }
         h1, h2, h3 {
             letter-spacing: 0;
+        }
+        h1 {
+            font-size: clamp(2rem, 4vw, 3.4rem) !important;
+            line-height: 1.08 !important;
+        }
+        h2 {
+            font-size: 1.45rem !important;
+            margin-top: 1.4rem !important;
+        }
+        h3 {
+            font-size: 1.08rem !important;
         }
         .metric-row [data-testid="stMetric"] {
             background: #ffffff;
@@ -183,6 +242,35 @@ def configure_page() -> None:
             background: #f7fafc;
             margin: 0.5rem 0 1rem 0;
         }
+        .hero {
+            padding: 0.35rem 0 0.75rem 0;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 1rem;
+        }
+        .hero-kicker {
+            color: #1f6f8b;
+            font-size: 0.88rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .hero-copy {
+            color: #4b5563;
+            font-size: 1rem;
+            line-height: 1.7;
+            max-width: 900px;
+        }
+        .section-anchor {
+            scroll-margin-top: 1.5rem;
+        }
+        .status-ok {
+            color: #047857;
+            font-weight: 700;
+        }
+        .status-warn {
+            color: #b45309;
+            font-weight: 700;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -194,6 +282,44 @@ def read_sample_data() -> pd.DataFrame:
     if sample_path.exists():
         return pd.read_csv(sample_path)
     return pd.DataFrame(DEFAULT_SAMPLE_ROWS)
+
+
+def scenario_dataframe(name: str) -> pd.DataFrame:
+    scenario = DEMO_SCENARIOS.get(name, DEMO_SCENARIOS["制造业｜利润修复与回款压力"])
+    return pd.DataFrame(scenario["rows"])
+
+
+def scenario_text(name: str) -> str:
+    scenario = DEMO_SCENARIOS.get(name, DEMO_SCENARIOS["制造业｜利润修复与回款压力"])
+    return str(scenario["text"])
+
+
+def apply_demo_scenario(name: str) -> None:
+    df = scenario_dataframe(name)
+    st.session_state.document_text = scenario_text(name)
+    st.session_state.tables = {name: df}
+    st.session_state.active_df = df
+    st.session_state.source_name = f"内置样例：{name}"
+    st.session_state.custom_uploaded = False
+    st.session_state.demo_scenario = name
+
+
+def provider_is_configured(provider: str) -> bool:
+    provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS["Demo Mode"])
+    api_key_env = provider_config["api_key_env"]
+    if not api_key_env:
+        return True
+    return bool(get_secret(api_key_env))
+
+
+def provider_status_label(provider: str) -> str:
+    if provider == "Demo Mode":
+        return "Demo Mode：已启用，本地 RAG + 规则分析"
+    provider_config = LLM_PROVIDERS[provider]
+    api_key_env = provider_config["api_key_env"]
+    if provider_is_configured(provider):
+        return f"{provider}：已配置 {api_key_env}，可调用真实模型"
+    return f"{provider}：未配置 {api_key_env}，会自动回退 Demo Mode"
 
 
 def normalize_name(name: object) -> str:
@@ -735,14 +861,19 @@ def create_pdf_bytes(markdown_text: str) -> bytes:
 
 
 def ensure_session_state() -> None:
+    default_scenario = "制造业｜利润修复与回款压力"
+    if "demo_scenario" not in st.session_state:
+        st.session_state.demo_scenario = default_scenario
+    if "custom_uploaded" not in st.session_state:
+        st.session_state.custom_uploaded = False
     if "document_text" not in st.session_state:
-        st.session_state.document_text = "当前使用系统内置 demo 财务数据。上传 PDF、Excel 或 CSV 后，将展示真实解析结果。"
+        st.session_state.document_text = scenario_text(default_scenario)
     if "tables" not in st.session_state:
-        st.session_state.tables = {"Demo": read_sample_data()}
+        st.session_state.tables = {default_scenario: scenario_dataframe(default_scenario)}
     if "active_df" not in st.session_state:
-        st.session_state.active_df = read_sample_data()
+        st.session_state.active_df = scenario_dataframe(default_scenario)
     if "source_name" not in st.session_state:
-        st.session_state.source_name = "sample_financials.csv"
+        st.session_state.source_name = f"内置样例：{default_scenario}"
 
 
 def render_header() -> None:
@@ -928,6 +1059,235 @@ def page_export() -> None:
     st.markdown(brief)
 
 
+def render_hero(provider: str) -> None:
+    status_class = "status-ok" if provider_is_configured(provider) else "status-warn"
+    st.markdown(
+        f"""
+        <div class="hero section-anchor" id="overview">
+            <div class="hero-kicker">Public Streamlit App · Finance + AI Portfolio Project</div>
+            <h1>{APP_TITLE}｜{APP_SUBTITLE}</h1>
+            <p class="hero-copy">
+            一个面向财务分析、审计、投研和商业分析场景的网页应用。打开页面后可直接向下滚动，
+            完成“上传/选择样例数据 → 财务摘要 → 风险审阅 → RAG 问答 → Multi-Agent 分析 → 导出底稿”的完整工作流。
+            </p>
+            <p class="{status_class}">当前 AI 模式：{provider_status_label(provider)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("支持文件", "PDF / Excel / CSV")
+    col2.metric("内置样例", f"{len(DEMO_SCENARIOS)} 套")
+    col3.metric("分析框架", "RAG + Agents")
+    col4.metric("导出格式", "MD / CSV / Word / PDF")
+
+
+def render_data_section() -> None:
+    st.markdown('<div class="section-anchor" id="data"></div>', unsafe_allow_html=True)
+    st.header("1. 数据输入与样例场景")
+    st.write("可上传真实文件，也可以直接切换内置行业样例。未上传时，系统使用当前样例数据进行完整分析。")
+
+    uploaded_files = st.file_uploader(
+        "上传 PDF、Excel 或 CSV 文件",
+        type=["pdf", "xlsx", "xls", "csv"],
+        accept_multiple_files=True,
+        key="one_page_uploader",
+    )
+    if uploaded_files:
+        try:
+            text, tables, names = parse_uploaded_files(uploaded_files)
+            st.session_state.document_text = text or "文件已解析，但没有提取到可读文本。"
+            st.session_state.tables = tables or {st.session_state.demo_scenario: scenario_dataframe(st.session_state.demo_scenario)}
+            st.session_state.active_df = pick_primary_table(st.session_state.tables)
+            st.session_state.source_name = "；".join(names)
+            st.session_state.custom_uploaded = True
+            st.success(f"已解析 {len(names)} 个文件：{'、'.join(names)}")
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"解析失败：{exc}")
+
+    if st.button("恢复当前内置样例数据"):
+        apply_demo_scenario(st.session_state.demo_scenario)
+        st.rerun()
+
+    st.info(f"当前数据源：{st.session_state.source_name}")
+    scenario = DEMO_SCENARIOS.get(st.session_state.demo_scenario)
+    if scenario and not st.session_state.custom_uploaded:
+        st.caption(scenario["description"])
+
+    tab1, tab2 = st.tabs(["表格数据", "文本上下文"])
+    with tab1:
+        for name, frame in st.session_state.tables.items():
+            st.markdown(f"**{name}**")
+            st.dataframe(frame.head(100), width="stretch")
+    with tab2:
+        st.text_area("已解析文本或样例业务描述", value=st.session_state.document_text[:6000], height=220)
+
+
+def render_summary_section() -> None:
+    st.markdown('<div class="section-anchor" id="summary"></div>', unsafe_allow_html=True)
+    st.header("2. 财务摘要与趋势")
+    df = st.session_state.active_df
+    summary = build_financial_summary(df)
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("最新收入", summary["latest_revenue"], summary["revenue_growth"])
+    col2.metric("最新净利润", summary["latest_net_profit"], summary["net_profit_growth"])
+    col3.metric("毛利率", summary["gross_margin"])
+    col4.metric("资产负债率", summary["liability_ratio"])
+
+    years = active_year_series(df)
+    revenue = numeric_series(df, "revenue")
+    net_profit = numeric_series(df, "net_profit")
+    operating_cash_flow = numeric_series(df, "operating_cash_flow")
+    operating_expense = numeric_series(df, "operating_expense")
+
+    chart_col1, chart_col2 = st.columns(2)
+    with chart_col1:
+        chart_df = pd.DataFrame({"期间": years})
+        if revenue is not None:
+            chart_df["营业收入"] = revenue
+        if net_profit is not None:
+            chart_df["净利润"] = net_profit
+        if len(chart_df.columns) > 1:
+            melted = chart_df.melt(id_vars="期间", var_name="指标", value_name="金额")
+            fig = px.line(melted, x="期间", y="金额", color="指标", markers=True, title="收入与利润趋势")
+            st.plotly_chart(fig, width="stretch")
+    with chart_col2:
+        values = {
+            "期间费用": latest_value(operating_expense),
+            "经营现金流": latest_value(operating_cash_flow),
+            "净利润": latest_value(net_profit),
+        }
+        bar_df = pd.DataFrame({"指标": list(values.keys()), "金额": list(values.values())}).dropna()
+        if not bar_df.empty:
+            fig = px.bar(bar_df, x="指标", y="金额", title="利润、现金流与费用对比", color="指标")
+            st.plotly_chart(fig, width="stretch")
+
+
+def render_risk_section() -> list[RiskItem]:
+    st.markdown('<div class="section-anchor" id="risk"></div>', unsafe_allow_html=True)
+    st.header("3. 风险审阅")
+    risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
+    risk_df = pd.DataFrame([item.__dict__ for item in risks])
+    col1, col2 = st.columns([1.15, 0.85])
+    with col1:
+        st.dataframe(risk_df, width="stretch", hide_index=True)
+    with col2:
+        count_df = risk_df.groupby("level", as_index=False).size()
+        level_order = ["低", "中", "高"]
+        count_df["level"] = pd.Categorical(count_df["level"], categories=level_order, ordered=True)
+        count_df = count_df.sort_values("level")
+        fig = px.bar(count_df, x="level", y="size", title="风险等级分布", labels={"level": "风险等级", "size": "数量"}, color="level")
+        st.plotly_chart(fig, width="stretch")
+    for item in risks[:4]:
+        with st.expander(f"{item.level}风险｜{item.category}", expanded=item.level == "高"):
+            st.write(item.finding)
+            st.write(item.suggestion)
+    return risks
+
+
+def render_qa_section(provider: str, risks: list[RiskItem]) -> None:
+    st.markdown('<div class="section-anchor" id="qa"></div>', unsafe_allow_html=True)
+    st.header("4. RAG 问答助手")
+    st.write("提问时系统会先检索当前文档和表格摘要；如果已配置 API key，会把检索证据交给 OpenAI 或 DeepSeek 生成更专业的回答。")
+    question = st.text_input("输入问题", value="这家公司最需要关注的财务风险是什么？")
+    if st.button("生成 RAG 回答", type="primary"):
+        st.markdown(answer_question_with_rag(question, st.session_state.active_df, st.session_state.document_text, risks, provider))
+    with st.expander("查看当前问题的检索证据"):
+        contexts = retrieve_context(question, st.session_state.document_text, st.session_state.active_df, top_k=4)
+        for index, chunk in enumerate(contexts, start=1):
+            st.markdown(f"**证据 {index}**")
+            st.write(chunk)
+
+
+def render_agents_section(provider: str, risks: list[RiskItem]) -> dict[str, str]:
+    st.markdown('<div class="section-anchor" id="agents"></div>', unsafe_allow_html=True)
+    st.header("5. Multi-Agent 专业审阅")
+    st.write("这里用四个专业角色模拟财务分析、风险审阅、战略分析和报告写作。配置 API 后，同一套上下文会交给真实模型生成。")
+    agent_outputs = run_multi_agent_review(st.session_state.active_df, st.session_state.document_text, risks, provider)
+    cols = st.columns(2)
+    for index, (name, content) in enumerate(agent_outputs.items()):
+        with cols[index % 2]:
+            with st.expander(name, expanded=True):
+                st.write(content)
+    return agent_outputs
+
+
+def render_export_section(risks: list[RiskItem], agent_outputs: dict[str, str]) -> None:
+    st.markdown('<div class="section-anchor" id="export"></div>', unsafe_allow_html=True)
+    st.header("6. 分析底稿导出")
+    brief = create_audit_workpaper(st.session_state.active_df, st.session_state.document_text, risks, agent_outputs)
+    risk_csv = pd.DataFrame([item.__dict__ for item in risks]).to_csv(index=False).encode("utf-8-sig")
+    data_csv = st.session_state.active_df.to_csv(index=False).encode("utf-8-sig")
+    docx_bytes = create_docx_bytes(brief)
+    pdf_bytes = create_pdf_bytes(brief)
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.download_button("Markdown", brief, file_name="finance_analysis_brief.md", mime="text/markdown")
+    col2.download_button("风险 CSV", risk_csv, file_name="risk_review.csv", mime="text/csv")
+    col3.download_button("表格 CSV", data_csv, file_name="parsed_financial_table.csv", mime="text/csv")
+    col4.download_button("Word", docx_bytes, file_name="audit_workpaper.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    col5.download_button("PDF", pdf_bytes, file_name="audit_workpaper.pdf", mime="application/pdf")
+
+    with st.expander("预览分析底稿", expanded=False):
+        st.markdown(brief)
+
+
+def render_api_section(provider: str) -> None:
+    st.markdown('<div class="section-anchor" id="api"></div>', unsafe_allow_html=True)
+    st.header("7. API 配置状态")
+    status_rows = []
+    for name in LLM_PROVIDERS:
+        status_rows.append(
+            {
+                "模式": name,
+                "状态": provider_status_label(name),
+                "当前选择": "是" if name == provider else "否",
+            }
+        )
+    st.dataframe(pd.DataFrame(status_rows), width="stretch", hide_index=True)
+    st.info(
+        "如果未配置 API key，网站仍会用 RAG 检索 + 财务规则回答问题；配置 OpenAI 或 DeepSeek 后，回答会基于同样证据交给模型生成，适合对外展示更自然、更专业的分析。"
+    )
+
+
+def render_one_page(provider: str) -> None:
+    render_hero(provider)
+    render_data_section()
+    render_summary_section()
+    risks = render_risk_section()
+    render_qa_section(provider, risks)
+    agent_outputs = render_agents_section(provider, risks)
+    render_export_section(risks, agent_outputs)
+    render_api_section(provider)
+
+
+def render_sidebar_settings() -> str:
+    st.sidebar.title(APP_TITLE)
+    st.sidebar.caption("公网作品集版本")
+    st.sidebar.markdown(
+        "[概览](#overview) · [数据](#data) · [摘要](#summary) · [风险](#risk) · [问答](#qa) · [Agent](#agents) · [导出](#export)"
+    )
+    provider = st.sidebar.selectbox("AI 模式", list(LLM_PROVIDERS.keys()))
+    scenario_names = list(DEMO_SCENARIOS.keys())
+    selected_scenario = st.sidebar.selectbox(
+        "内置样例数据",
+        scenario_names,
+        index=scenario_names.index(st.session_state.demo_scenario),
+    )
+    if selected_scenario != st.session_state.demo_scenario and not st.session_state.custom_uploaded:
+        apply_demo_scenario(selected_scenario)
+        st.rerun()
+    if selected_scenario != st.session_state.demo_scenario and st.session_state.custom_uploaded:
+        st.session_state.demo_scenario = selected_scenario
+    if st.sidebar.button("载入所选样例"):
+        apply_demo_scenario(selected_scenario)
+        st.rerun()
+    st.sidebar.divider()
+    for name in LLM_PROVIDERS:
+        st.sidebar.caption(provider_status_label(name))
+    return provider
+
+
 def render_sidebar() -> str:
     st.sidebar.title(APP_TITLE)
     st.sidebar.caption(APP_SUBTITLE)
@@ -950,20 +1310,8 @@ def render_sidebar() -> str:
 def main() -> None:
     configure_page()
     ensure_session_state()
-    page = render_sidebar()
-
-    pages = {
-        "Home": page_home,
-        "Upload & Parse": page_upload_parse,
-        "Financial Summary": page_financial_summary,
-        "Risk Review": page_risk_review,
-        "Q&A Assistant": page_qa,
-        "RAG Search": page_rag_search,
-        "Multi-Agent Review": page_multi_agent,
-        "Analyst Brief": page_analyst_brief,
-        "Export": page_export,
-    }
-    pages[page]()
+    provider = render_sidebar_settings()
+    render_one_page(provider)
 
 
 if __name__ == "__main__":
