@@ -1,21 +1,120 @@
 from __future__ import annotations
 
 import io
+import json
+import os
 import re
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
+from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 
 
 APP_TITLE = "FinanceDoc AI"
 APP_SUBTITLE = "财务文档智能分析与风险审阅系统"
 SAMPLE_DATA_PATH = "sample_data/sample_financials.csv"
+
+DEFAULT_SAMPLE_ROWS = [
+    {
+        "year": 2021,
+        "revenue": 82000000,
+        "cogs": 49200000,
+        "gross_profit": 32800000,
+        "operating_expense": 16200000,
+        "sales_expense": 5200000,
+        "admin_expense": 6100000,
+        "r_and_d_expense": 4900000,
+        "net_profit": 9600000,
+        "operating_cash_flow": 8800000,
+        "total_assets": 126000000,
+        "total_liabilities": 65000000,
+        "equity": 61000000,
+        "inventory": 14200000,
+        "receivables": 17600000,
+    },
+    {
+        "year": 2022,
+        "revenue": 101000000,
+        "cogs": 62600000,
+        "gross_profit": 38400000,
+        "operating_expense": 21300000,
+        "sales_expense": 7200000,
+        "admin_expense": 7600000,
+        "r_and_d_expense": 6500000,
+        "net_profit": 11200000,
+        "operating_cash_flow": 9400000,
+        "total_assets": 151000000,
+        "total_liabilities": 80500000,
+        "equity": 70500000,
+        "inventory": 19800000,
+        "receivables": 24600000,
+    },
+    {
+        "year": 2023,
+        "revenue": 95000000,
+        "cogs": 61750000,
+        "gross_profit": 33250000,
+        "operating_expense": 26600000,
+        "sales_expense": 9000000,
+        "admin_expense": 8900000,
+        "r_and_d_expense": 8700000,
+        "net_profit": 5900000,
+        "operating_cash_flow": 3100000,
+        "total_assets": 168000000,
+        "total_liabilities": 113000000,
+        "equity": 55000000,
+        "inventory": 27400000,
+        "receivables": 32200000,
+    },
+    {
+        "year": 2024,
+        "revenue": 108000000,
+        "cogs": 68040000,
+        "gross_profit": 39960000,
+        "operating_expense": 28400000,
+        "sales_expense": 9400000,
+        "admin_expense": 9300000,
+        "r_and_d_expense": 9700000,
+        "net_profit": 7800000,
+        "operating_cash_flow": 6900000,
+        "total_assets": 182000000,
+        "total_liabilities": 121000000,
+        "equity": 61000000,
+        "inventory": 28800000,
+        "receivables": 35000000,
+    },
+]
+
+LLM_PROVIDERS = {
+    "Demo Mode": {
+        "api_key_env": "",
+        "base_url_env": "",
+        "model_env": "",
+        "default_base_url": "",
+        "default_model": "",
+    },
+    "OpenAI": {
+        "api_key_env": "OPENAI_API_KEY",
+        "base_url_env": "OPENAI_BASE_URL",
+        "model_env": "OPENAI_MODEL",
+        "default_base_url": "https://api.openai.com/v1/chat/completions",
+        "default_model": "gpt-4o-mini",
+    },
+    "DeepSeek": {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "base_url_env": "DEEPSEEK_BASE_URL",
+        "model_env": "DEEPSEEK_MODEL",
+        "default_base_url": "https://api.deepseek.com/chat/completions",
+        "default_model": "deepseek-chat",
+    },
+}
 
 
 FINANCIAL_ALIASES = {
@@ -54,6 +153,7 @@ class RiskItem:
 
 
 def configure_page() -> None:
+    load_dotenv()
     st.set_page_config(page_title=f"{APP_TITLE} | {APP_SUBTITLE}", page_icon="FD", layout="wide")
     st.markdown(
         """
@@ -90,7 +190,10 @@ def configure_page() -> None:
 
 
 def read_sample_data() -> pd.DataFrame:
-    return pd.read_csv(SAMPLE_DATA_PATH)
+    sample_path = Path(SAMPLE_DATA_PATH)
+    if sample_path.exists():
+        return pd.read_csv(sample_path)
+    return pd.DataFrame(DEFAULT_SAMPLE_ROWS)
 
 
 def normalize_name(name: object) -> str:
@@ -183,6 +286,19 @@ def parse_uploaded_file(uploaded_file) -> tuple[str, dict[str, pd.DataFrame]]:
         df = pd.read_csv(io.BytesIO(raw))
         return df.head(80).to_markdown(index=False), {"CSV": df}
     raise ValueError("暂不支持该文件类型，请上传 PDF、Excel 或 CSV。")
+
+
+def parse_uploaded_files(uploaded_files) -> tuple[str, dict[str, pd.DataFrame], list[str]]:
+    text_parts: list[str] = []
+    tables: dict[str, pd.DataFrame] = {}
+    names: list[str] = []
+    for uploaded_file in uploaded_files:
+        text, file_tables = parse_uploaded_file(uploaded_file)
+        names.append(uploaded_file.name)
+        text_parts.append(f"## 文件：{uploaded_file.name}\n{text}")
+        for table_name, frame in file_tables.items():
+            tables[f"{uploaded_file.name} / {table_name}"] = frame
+    return "\n\n".join(text_parts), tables, names
 
 
 def pick_primary_table(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -318,6 +434,83 @@ def split_text(text: str, chunk_size: int = 520) -> list[str]:
     return chunks
 
 
+def table_context(df: pd.DataFrame) -> str:
+    summary = build_financial_summary(df)
+    return "\n".join(
+        [
+            f"最新收入：{summary['latest_revenue']}",
+            f"收入增速：{summary['revenue_growth']}",
+            f"最新净利润：{summary['latest_net_profit']}",
+            f"净利润增速：{summary['net_profit_growth']}",
+            f"毛利率：{summary['gross_margin']}",
+            f"净利率：{summary['net_margin']}",
+            f"经营现金流：{summary['operating_cash_flow']}",
+            f"现金利润转化率：{summary['cash_conversion']}",
+            f"资产负债率：{summary['liability_ratio']}",
+            f"费用率：{summary['expense_ratio']}",
+        ]
+    )
+
+
+def retrieve_context(question: str, text: str, df: pd.DataFrame, top_k: int = 4) -> list[str]:
+    chunks = split_text(text)
+    chunks.append("财务指标摘要：\n" + table_context(df))
+    terms = [term for term in re.split(r"\W+|的|和|是|吗|如何|为什么|请|分析", question) if len(term) >= 2]
+    scored: list[tuple[int, int, str]] = []
+    for index, chunk in enumerate(chunks):
+        lowered = chunk.lower()
+        score = sum(lowered.count(term.lower()) for term in terms)
+        score += sum(1 for term in terms if term.lower() in lowered)
+        if score or "财务指标摘要" in chunk:
+            scored.append((score, -index, chunk))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [chunk for _, _, chunk in scored[:top_k]]
+
+
+def get_secret(name: str) -> str | None:
+    try:
+        value = st.secrets.get(name)
+        if value:
+            return str(value)
+    except Exception:  # noqa: BLE001
+        pass
+    return os.getenv(name)
+
+
+def call_llm(provider: str, prompt: str) -> tuple[str, bool]:
+    provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS["Demo Mode"])
+    api_key_env = provider_config["api_key_env"]
+    if not api_key_env:
+        return "", False
+
+    api_key = get_secret(api_key_env)
+    if not api_key:
+        return f"未配置 {api_key_env}，当前自动使用 demo mode 回答。", False
+
+    base_url = get_secret(provider_config["base_url_env"]) or provider_config["default_base_url"]
+    model = get_secret(provider_config["model_env"]) or provider_config["default_model"]
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "你是严谨的中文财务分析助手。回答必须基于用户提供的上下文，不能编造数据。"},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.2,
+    }
+    request = urllib.request.Request(
+        base_url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=25) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        return result["choices"][0]["message"]["content"], True
+    except (urllib.error.URLError, urllib.error.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
+        return f"{provider} 调用失败，已回退 demo mode。错误信息：{exc}", False
+
+
 def answer_question(question: str, df: pd.DataFrame, text: str, risks: list[RiskItem]) -> str:
     question = question.strip()
     if not question:
@@ -349,6 +542,35 @@ def answer_question(question: str, df: pd.DataFrame, text: str, risks: list[Risk
         evidence = "\n\n".join(f"- {chunk[:280]}" for _, chunk in scored[:3])
         return f"我在已解析文本中找到了这些相关片段，可作为初步回答依据：\n\n{evidence}\n\n建议结合原文页码和表格数据进一步复核。"
     return "当前文档中没有检索到强相关片段。你可以换一个更贴近财务字段或风险关键词的问题。"
+
+
+def answer_question_with_rag(question: str, df: pd.DataFrame, text: str, risks: list[RiskItem], provider: str) -> str:
+    contexts = retrieve_context(question, text, df)
+    risk_lines = "\n".join(f"- {item.category}（{item.level}）：{item.finding}" for item in risks[:6])
+    prompt = f"""请基于以下资料回答财务分析问题。
+
+问题：{question}
+
+检索上下文：
+{chr(10).join(f'[{idx + 1}] {chunk}' for idx, chunk in enumerate(contexts))}
+
+规则识别风险：
+{risk_lines}
+
+回答要求：
+1. 先给结论。
+2. 引用关键数据或文本证据。
+3. 给出下一步审阅建议。
+4. 如果资料不足，明确说明不足。
+"""
+    llm_answer, used_llm = call_llm(provider, prompt)
+    if used_llm:
+        return llm_answer
+
+    fallback = answer_question(question, df, text, risks)
+    evidence = "\n\n".join(f"- {chunk[:320]}" for chunk in contexts)
+    prefix = f"{llm_answer}\n\n" if llm_answer else ""
+    return f"{prefix}{fallback}\n\n**RAG 检索证据：**\n\n{evidence}"
 
 
 def create_brief(df: pd.DataFrame, text: str, risks: list[RiskItem]) -> str:
@@ -399,6 +621,119 @@ def create_brief(df: pd.DataFrame, text: str, risks: list[RiskItem]) -> str:
 """
 
 
+def run_multi_agent_review(df: pd.DataFrame, text: str, risks: list[RiskItem], provider: str = "Demo Mode") -> dict[str, str]:
+    summary = build_financial_summary(df)
+    risk_lines = "\n".join(f"- {item.category}（{item.level}）：{item.finding}" for item in risks[:6])
+    context = "\n".join(retrieve_context("财务表现 风险 审计 现金流 经营策略", text, df, top_k=5))
+    prompt = f"""请用四个角色分析财务文档：
+
+财务指标：
+{table_context(df)}
+
+主要风险：
+{risk_lines}
+
+文档上下文：
+{context}
+
+请分别输出：
+Accounting Agent、Risk Review Agent、Strategy Analyst Agent、Report Writer Agent。
+"""
+    llm_answer, used_llm = call_llm(provider, prompt)
+    if used_llm:
+        return {"LLM Multi-Agent Review": llm_answer}
+
+    return {
+        "Accounting Agent": (
+            f"最新收入为 {summary['latest_revenue']}，收入增速 {summary['revenue_growth']}；"
+            f"最新净利润为 {summary['latest_net_profit']}，净利率 {summary['net_margin']}。"
+            "建议继续核对收入确认政策、成本结转、费用归集和非经常性损益。"
+        ),
+        "Risk Review Agent": (
+            f"当前识别到 {len(risks)} 条风险信号。重点关注："
+            + "；".join(f"{item.category}: {item.finding}" for item in risks[:4])
+        ),
+        "Strategy Analyst Agent": (
+            "从经营视角看，需要判断收入恢复是否来自核心业务，同时关注费用投入、客户结构、库存和应收账款对现金流的影响。"
+        ),
+        "Report Writer Agent": (
+            "建议报告结构采用：业务概览、关键财务表现、现金流和资产负债、核心风险、管理层追问、后续审阅清单。"
+        ),
+    }
+
+
+def create_audit_workpaper(df: pd.DataFrame, text: str, risks: list[RiskItem], agent_outputs: dict[str, str]) -> str:
+    brief = create_brief(df, text, risks)
+    agents = "\n\n".join(f"## {name}\n\n{content}" for name, content in agent_outputs.items())
+    checklist = "\n".join(
+        [
+            "- 核对收入确认政策与主要合同条款。",
+            "- 抽查大额应收账款回款记录及期后回款。",
+            "- 复核存货跌价准备和库龄结构。",
+            "- 检查关联交易定价公允性和披露完整性。",
+            "- 对高风险事项补充管理层访谈问题。",
+        ]
+    )
+    return f"""{brief}
+
+## 6. Multi-Agent 审阅意见
+
+{agents}
+
+## 7. 审计底稿检查清单
+
+{checklist}
+"""
+
+
+def create_docx_bytes(markdown_text: str) -> bytes:
+    from docx import Document
+
+    document = Document()
+    for line in markdown_text.splitlines():
+        if line.startswith("# "):
+            document.add_heading(line[2:].strip(), level=1)
+        elif line.startswith("## "):
+            document.add_heading(line[3:].strip(), level=2)
+        elif line.startswith("- "):
+            document.add_paragraph(line[2:].strip(), style="List Bullet")
+        elif line.strip():
+            document.add_paragraph(line.strip())
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def create_pdf_bytes(markdown_text: str) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    page = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    x = 42
+    y = height - 48
+    page.setFont("STSong-Light", 10)
+    for raw_line in markdown_text.splitlines():
+        line = raw_line.replace("#", "").strip()
+        if not line:
+            y -= 8
+            continue
+        wrapped = [line[index : index + 42] for index in range(0, len(line), 42)]
+        for part in wrapped:
+            if y < 48:
+                page.showPage()
+                page.setFont("STSong-Light", 10)
+                y = height - 48
+            page.drawString(x, y, part)
+            y -= 16
+    page.save()
+    return buffer.getvalue()
+
+
 def ensure_session_state() -> None:
     if "document_text" not in st.session_state:
         st.session_state.document_text = "当前使用系统内置 demo 财务数据。上传 PDF、Excel 或 CSV 后，将展示真实解析结果。"
@@ -428,7 +763,7 @@ def page_home() -> None:
     )
     col1, col2, col3 = st.columns(3)
     col1.metric("输入文件", "PDF / Excel / CSV")
-    col2.metric("分析模式", "Demo + 规则引擎")
+    col2.metric("分析模式", "RAG + Multi-Agent")
     col3.metric("部署方式", "Streamlit Cloud")
 
     st.subheader("核心场景")
@@ -437,20 +772,20 @@ def page_home() -> None:
     )
 
     st.subheader("技术栈")
-    st.write("Streamlit、Pandas、PyPDF2、openpyxl、Plotly。后续可以在问答接口层接入 OpenAI 或 DeepSeek API。")
+    st.write("Streamlit、Pandas、PyPDF2、openpyxl、Plotly、python-docx、ReportLab。Q&A 可选择 demo mode、OpenAI 或 DeepSeek。")
 
 
 def page_upload_parse() -> None:
     render_header()
-    uploaded = st.file_uploader("上传 PDF、Excel 或 CSV 文件", type=["pdf", "xlsx", "xls", "csv"])
-    if uploaded:
+    uploaded_files = st.file_uploader("上传 PDF、Excel 或 CSV 文件", type=["pdf", "xlsx", "xls", "csv"], accept_multiple_files=True)
+    if uploaded_files:
         try:
-            text, tables = parse_uploaded_file(uploaded)
+            text, tables, names = parse_uploaded_files(uploaded_files)
             st.session_state.document_text = text or "文件已解析，但没有提取到可读文本。"
             st.session_state.tables = tables or {"Demo": read_sample_data()}
             st.session_state.active_df = pick_primary_table(st.session_state.tables)
-            st.session_state.source_name = uploaded.name
-            st.success(f"已解析：{uploaded.name}")
+            st.session_state.source_name = "；".join(names)
+            st.success(f"已解析 {len(names)} 个文件：{'、'.join(names)}")
         except Exception as exc:  # noqa: BLE001
             st.error(f"解析失败：{exc}")
 
@@ -461,7 +796,7 @@ def page_upload_parse() -> None:
     with tab2:
         for name, frame in st.session_state.tables.items():
             st.markdown(f"**{name}**")
-            st.dataframe(frame.head(100), use_container_width=True)
+            st.dataframe(frame.head(100), width="stretch")
 
 
 def page_financial_summary() -> None:
@@ -492,7 +827,7 @@ def page_financial_summary() -> None:
                 chart_df["净利润"] = net_profit
             melted = chart_df.melt(id_vars="期间", var_name="指标", value_name="金额")
             fig = px.line(melted, x="期间", y="金额", color="指标", markers=True, title="收入与利润趋势")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
     with chart_col2:
         values = {
             "期间费用": latest_value(operating_expense),
@@ -502,24 +837,24 @@ def page_financial_summary() -> None:
         bar_df = pd.DataFrame({"指标": list(values.keys()), "金额": list(values.values())}).dropna()
         if not bar_df.empty:
             fig = px.bar(bar_df, x="指标", y="金额", title="利润、现金流与费用对比", color="指标")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     st.subheader("数据表")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
 
 
 def page_risk_review() -> None:
     render_header()
     risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
     risk_df = pd.DataFrame([item.__dict__ for item in risks])
-    st.dataframe(risk_df, use_container_width=True, hide_index=True)
+    st.dataframe(risk_df, width="stretch", hide_index=True)
 
     level_order = ["低", "中", "高"]
     count_df = risk_df.groupby("level", as_index=False).size()
     count_df["level"] = pd.Categorical(count_df["level"], categories=level_order, ordered=True)
     count_df = count_df.sort_values("level")
     fig = px.bar(count_df, x="level", y="size", title="风险等级分布", labels={"level": "风险等级", "size": "数量"}, color="level")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.subheader("审阅建议")
     for item in risks:
@@ -530,16 +865,37 @@ def page_risk_review() -> None:
 
 def page_qa() -> None:
     render_header()
-    st.write("第一版使用规则和文本检索模拟问答，不强制调用 API。")
+    st.write("支持 RAG 检索问答；配置 API key 后可调用 OpenAI 或 DeepSeek，未配置时自动回退 demo mode。")
+    provider = st.selectbox("回答模式", list(LLM_PROVIDERS.keys()))
     question = st.text_input("输入你的问题", placeholder="例如：这家公司现金流质量怎么样？有哪些审计风险？")
     if st.button("生成回答", type="primary"):
         risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
-        st.markdown(answer_question(question, st.session_state.active_df, st.session_state.document_text, risks))
+        st.markdown(answer_question_with_rag(question, st.session_state.active_df, st.session_state.document_text, risks, provider))
 
-    with st.expander("后续 LLM API 接入说明"):
-        st.write(
-            "可以把当前 answer_question 函数替换为 RAG 调用：先检索相关文本和表格摘要，再将上下文传入 OpenAI 或 DeepSeek API。"
-        )
+    with st.expander("API 配置说明"):
+        st.write("OpenAI：配置 `OPENAI_API_KEY`，可选 `OPENAI_MODEL` 和 `OPENAI_BASE_URL`。")
+        st.write("DeepSeek：配置 `DEEPSEEK_API_KEY`，可选 `DEEPSEEK_MODEL` 和 `DEEPSEEK_BASE_URL`。")
+
+
+def page_rag_search() -> None:
+    render_header()
+    query = st.text_input("检索问题或关键词", value="现金流 风险 审计意见")
+    top_k = st.slider("返回片段数量", min_value=2, max_value=8, value=4)
+    contexts = retrieve_context(query, st.session_state.document_text, st.session_state.active_df, top_k=top_k)
+    st.subheader("检索结果")
+    for index, chunk in enumerate(contexts, start=1):
+        with st.expander(f"证据片段 {index}", expanded=index == 1):
+            st.write(chunk)
+
+
+def page_multi_agent() -> None:
+    render_header()
+    provider = st.selectbox("分析模式", list(LLM_PROVIDERS.keys()), key="agent_provider")
+    risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
+    agent_outputs = run_multi_agent_review(st.session_state.active_df, st.session_state.document_text, risks, provider)
+    for name, content in agent_outputs.items():
+        with st.expander(name, expanded=True):
+            st.write(content)
 
 
 def page_analyst_brief() -> None:
@@ -553,14 +909,20 @@ def page_analyst_brief() -> None:
 def page_export() -> None:
     render_header()
     risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
-    brief = create_brief(st.session_state.active_df, st.session_state.document_text, risks)
+    agent_outputs = run_multi_agent_review(st.session_state.active_df, st.session_state.document_text, risks)
+    brief = create_audit_workpaper(st.session_state.active_df, st.session_state.document_text, risks, agent_outputs)
     risk_csv = pd.DataFrame([item.__dict__ for item in risks]).to_csv(index=False).encode("utf-8-sig")
     data_csv = st.session_state.active_df.to_csv(index=False).encode("utf-8-sig")
+    docx_bytes = create_docx_bytes(brief)
+    pdf_bytes = create_pdf_bytes(brief)
 
     col1, col2, col3 = st.columns(3)
     col1.download_button("下载分析底稿", brief, file_name="finance_analysis_brief.md", mime="text/markdown")
     col2.download_button("下载风险清单 CSV", risk_csv, file_name="risk_review.csv", mime="text/csv")
     col3.download_button("下载解析表格 CSV", data_csv, file_name="parsed_financial_table.csv", mime="text/csv")
+    col4, col5 = st.columns(2)
+    col4.download_button("下载 Word 审计底稿", docx_bytes, file_name="audit_workpaper.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    col5.download_button("下载 PDF 审计底稿", pdf_bytes, file_name="audit_workpaper.pdf", mime="application/pdf")
 
     st.subheader("导出预览")
     st.markdown(brief)
@@ -577,6 +939,8 @@ def render_sidebar() -> str:
             "Financial Summary",
             "Risk Review",
             "Q&A Assistant",
+            "RAG Search",
+            "Multi-Agent Review",
             "Analyst Brief",
             "Export",
         ],
@@ -594,6 +958,8 @@ def main() -> None:
         "Financial Summary": page_financial_summary,
         "Risk Review": page_risk_review,
         "Q&A Assistant": page_qa,
+        "RAG Search": page_rag_search,
+        "Multi-Agent Review": page_multi_agent,
         "Analyst Brief": page_analyst_brief,
         "Export": page_export,
     }

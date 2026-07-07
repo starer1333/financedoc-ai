@@ -5,3 +5,5 @@ PyPDF2
 openpyxl
 python-dotenv
 tabulate
+python-docx
+reportlab
