@@ -176,6 +176,24 @@ DEEPSEEK_MODEL = "deepseek-v4-flash"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/chat/completions"
 ```
 
+## DeepSeek 接入验证文件
+
+仓库提供了专门用于验证 API 是否真实接入的测试文件：
+
+```text
+test_documents/deepseek_api_probe_memo.pdf
+test_documents/deepseek_api_probe_financials.csv
+test_documents/deepseek_api_probe_instructions.md
+```
+
+把 PDF 和 CSV 同时上传到网页后，在 RAG 问答区提问：
+
+```text
+请根据我上传的测试文档，完成 DeepSeek API 接入验证。请输出验证暗号、最主要的三个财务风险，并判断这是现金流质量问题还是收入规模问题。
+```
+
+如果 DeepSeek 正常接入，回答应能识别暗号 `DS-PROBE-7429`，并说明主要问题是现金流质量、回款压力和存货周转，而不是单纯收入规模下降。
+
 ## 已实现升级
 
 - DeepSeek API 接入
