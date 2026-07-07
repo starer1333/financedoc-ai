@@ -141,22 +141,6 @@ DEMO_SCENARIOS = {
 }
 
 LLM_PROVIDERS = {
-    "Demo Mode": {
-        "api_key_env": "",
-        "api_key_envs": [],
-        "base_url_env": "",
-        "model_env": "",
-        "default_base_url": "",
-        "default_model": "",
-    },
-    "OpenAI": {
-        "api_key_env": "OPENAI_API_KEY",
-        "api_key_envs": ["OPENAI_API_KEY", "OPENAI"],
-        "base_url_env": "OPENAI_BASE_URL",
-        "model_env": "OPENAI_MODEL",
-        "default_base_url": "https://api.openai.com/v1/chat/completions",
-        "default_model": "gpt-4o-mini",
-    },
     "DeepSeek": {
         "api_key_env": "DEEPSEEK_API_KEY",
         "api_key_envs": ["DEEPSEEK_API_KEY", "DEEPSEEK"],
@@ -164,16 +148,10 @@ LLM_PROVIDERS = {
         "model_env": "DEEPSEEK_MODEL",
         "default_base_url": "https://api.deepseek.com/chat/completions",
         "default_model": "deepseek-v4-flash",
-    },
-    "Kimi": {
-        "api_key_env": "KIMI_API_KEY",
-        "api_key_envs": ["KIMI_API_KEY", "KIMI", "MOONSHOT_API_KEY", "MOONSHOT"],
-        "base_url_env": "KIMI_BASE_URL",
-        "model_env": "KIMI_MODEL",
-        "default_base_url": "https://api.moonshot.cn/v1/chat/completions",
-        "default_model": "moonshot-v1-8k",
-    },
+    }
 }
+
+ACTIVE_LLM_PROVIDER = "DeepSeek"
 
 
 FINANCIAL_ALIASES = {
@@ -316,22 +294,11 @@ def apply_demo_scenario(name: str) -> None:
 
 
 def provider_is_configured(provider: str) -> bool:
-    provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS["Demo Mode"])
+    provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS[ACTIVE_LLM_PROVIDER])
     api_key_envs = provider_config.get("api_key_envs", [])
     if not api_key_envs:
         return True
     return bool(get_first_secret(api_key_envs))
-
-
-def provider_status_label(provider: str) -> str:
-    if provider == "Demo Mode":
-        return "Demo Mode：已启用，本地 RAG + 规则分析"
-    provider_config = LLM_PROVIDERS[provider]
-    api_key_envs = provider_config.get("api_key_envs", [provider_config["api_key_env"]])
-    env_label = " / ".join(api_key_envs)
-    if provider_is_configured(provider):
-        return f"{provider}：已配置密钥（支持 {env_label}），可调用真实模型"
-    return f"{provider}：未配置密钥（支持 {env_label}），会自动回退 Demo Mode"
 
 
 def normalize_name(name: object) -> str:
@@ -637,7 +604,7 @@ def normalize_chat_completions_url(base_url: str) -> str:
 
 
 def call_llm(provider: str, prompt: str) -> tuple[str, bool]:
-    provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS["Demo Mode"])
+    provider_config = LLM_PROVIDERS.get(provider, LLM_PROVIDERS[ACTIVE_LLM_PROVIDER])
     api_key_envs = provider_config.get("api_key_envs", [])
     if not api_key_envs:
         return "", False
@@ -692,7 +659,7 @@ def answer_question(question: str, df: pd.DataFrame, text: str, risks: list[Risk
     if any(word in question for word in ["现金流", "回款", "cash"]):
         return f"经营现金流为 {summary['operating_cash_flow']}，现金利润转化率为 {summary['cash_conversion']}。如果该指标低于 100%，需要关注应收账款、存货和付款周期。"
     if "api" in lower_question or "llm" in lower_question or "deepseek" in lower_question or "openai" in lower_question:
-        return "第一版采用 demo mode：规则分析和文本检索优先，保证可部署和可解释。后续可以在同一接口层接入 OpenAI 或 DeepSeek，把检索到的上下文交给模型生成更自然的答案。"
+        return "系统采用 DeepSeek API + RAG 检索的方式回答问题；如果模型密钥不可用，会自动回退到本地规则和文本证据回答，保证网页仍可使用。"
 
     query_terms = [term for term in re.split(r"\W+|的|和|是|吗|如何|为什么", question) if len(term) >= 2]
     chunks = split_text(text)
@@ -785,7 +752,7 @@ def create_brief(df: pd.DataFrame, text: str, risks: list[RiskItem]) -> str:
 """
 
 
-def run_multi_agent_review(df: pd.DataFrame, text: str, risks: list[RiskItem], provider: str = "Demo Mode") -> dict[str, str]:
+def run_multi_agent_review(df: pd.DataFrame, text: str, risks: list[RiskItem], provider: str = ACTIVE_LLM_PROVIDER) -> dict[str, str]:
     summary = build_financial_summary(df)
     risk_lines = "\n".join(f"- {item.category}（{item.level}）：{item.finding}" for item in risks[:6])
     context = "\n".join(retrieve_context("财务表现 风险 审计 现金流 经营策略", text, df, top_k=5))
@@ -1028,7 +995,7 @@ def page_home() -> None:
     )
 
     st.subheader("技术栈")
-    st.write("Streamlit、Pandas、PyPDF2、openpyxl、Plotly、python-docx、ReportLab。Q&A 可选择 demo mode、OpenAI 或 DeepSeek。")
+    st.write("Streamlit、Pandas、PyPDF2、openpyxl、Plotly、python-docx、ReportLab。Q&A 使用 DeepSeek API 与本地 RAG 检索结合。")
 
 
 def page_upload_parse() -> None:
@@ -1121,16 +1088,12 @@ def page_risk_review() -> None:
 
 def page_qa() -> None:
     render_header()
-    st.write("支持 RAG 检索问答；配置 API key 后可调用 OpenAI 或 DeepSeek，未配置时自动回退 demo mode。")
-    provider = st.selectbox("回答模式", list(LLM_PROVIDERS.keys()))
+    st.write("支持 RAG 检索问答；系统优先调用 DeepSeek，未配置时自动回退本地规则模式。")
+    provider = ACTIVE_LLM_PROVIDER
     question = st.text_input("输入你的问题", placeholder="例如：这家公司现金流质量怎么样？有哪些审计风险？")
     if st.button("生成回答", type="primary"):
         risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
         st.markdown(answer_question_with_rag(question, st.session_state.active_df, st.session_state.document_text, risks, provider))
-
-    with st.expander("API 配置说明"):
-        st.write("OpenAI：配置 `OPENAI_API_KEY`，可选 `OPENAI_MODEL` 和 `OPENAI_BASE_URL`。")
-        st.write("DeepSeek：配置 `DEEPSEEK_API_KEY`，可选 `DEEPSEEK_MODEL` 和 `DEEPSEEK_BASE_URL`。")
 
 
 def page_rag_search() -> None:
@@ -1146,7 +1109,7 @@ def page_rag_search() -> None:
 
 def page_multi_agent() -> None:
     render_header()
-    provider = st.selectbox("分析模式", list(LLM_PROVIDERS.keys()), key="agent_provider")
+    provider = ACTIVE_LLM_PROVIDER
     risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
     agent_outputs = run_multi_agent_review(st.session_state.active_df, st.session_state.document_text, risks, provider)
     for name, content in agent_outputs.items():
@@ -1185,7 +1148,6 @@ def page_export() -> None:
 
 
 def render_hero(provider: str) -> None:
-    status_class = "status-ok" if provider_is_configured(provider) else "status-warn"
     st.markdown(
         f"""
         <div class="hero section-anchor" id="overview">
@@ -1195,7 +1157,7 @@ def render_hero(provider: str) -> None:
             一个面向财务分析、审计、投研和商业分析场景的网页应用。打开页面后可直接向下滚动，
             完成“上传/选择样例数据 → 财务摘要 → 风险审阅 → RAG 问答 → Multi-Agent 分析 → 导出底稿”的完整工作流。
             </p>
-            <p class="{status_class}">当前 AI 模式：{provider_status_label(provider)}</p>
+            <p class="status-ok">DeepSeek + RAG 财务分析工作流</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1313,7 +1275,7 @@ def render_risk_section() -> list[RiskItem]:
 def render_qa_section(provider: str, risks: list[RiskItem]) -> None:
     st.markdown('<div class="section-anchor" id="qa"></div>', unsafe_allow_html=True)
     st.header("4. RAG 问答助手")
-    st.write("提问时系统会先检索当前文档和表格摘要；如果已配置 API key，会把检索证据交给 OpenAI 或 DeepSeek 生成更专业的回答。")
+    st.write("提问时系统会先检索当前文档和表格摘要，再交给 DeepSeek 生成回答；如果密钥不可用，会自动回退到本地规则回答。")
     question = st.text_input("输入问题", value="这家公司最需要关注的财务风险是什么？")
     if st.button("生成 RAG 回答", type="primary"):
         st.markdown(answer_question_with_rag(question, st.session_state.active_df, st.session_state.document_text, risks, provider))
@@ -1327,7 +1289,7 @@ def render_qa_section(provider: str, risks: list[RiskItem]) -> None:
 def render_agents_section(provider: str, risks: list[RiskItem]) -> dict[str, str]:
     st.markdown('<div class="section-anchor" id="agents"></div>', unsafe_allow_html=True)
     st.header("5. Multi-Agent 专业审阅")
-    st.write("这里用四个专业角色模拟财务分析、风险审阅、战略分析和报告写作。配置 API 后，同一套上下文会交给真实模型生成。")
+    st.write("这里用四个专业角色模拟财务分析、风险审阅、战略分析和报告写作。系统会基于当前文档上下文生成审阅意见。")
     agent_outputs = run_multi_agent_review(st.session_state.active_df, st.session_state.document_text, risks, provider)
     cols = st.columns(2)
     for index, (name, content) in enumerate(agent_outputs.items()):
@@ -1357,33 +1319,6 @@ def render_export_section(risks: list[RiskItem], agent_outputs: dict[str, str]) 
         st.markdown(brief)
 
 
-def render_api_section(provider: str) -> None:
-    st.markdown('<div class="section-anchor" id="api"></div>', unsafe_allow_html=True)
-    st.header("7. API 配置状态")
-    status_rows = []
-    for name in LLM_PROVIDERS:
-        status_rows.append(
-            {
-                "模式": name,
-                "状态": provider_status_label(name),
-                "当前选择": "是" if name == provider else "否",
-            }
-        )
-    st.dataframe(pd.DataFrame(status_rows), width="stretch", hide_index=True)
-    st.info(
-        "如果未配置 API key，网站仍会用 RAG 检索 + 财务规则回答问题；配置 OpenAI 或 DeepSeek 后，回答会基于同样证据交给模型生成，适合对外展示更自然、更专业的分析。"
-    )
-    st.markdown(
-        """
-        **安全说明**
-
-        - 不要把真实 API key 写进 GitHub 代码或 README。
-        - 临时测试可以在左侧边栏输入 API key，只保存在当前网页会话里。
-        - 正式部署建议在 Streamlit Cloud 的 App Secrets 中配置。
-        """
-    )
-
-
 def render_one_page(provider: str) -> None:
     render_hero(provider)
     render_data_section()
@@ -1392,7 +1327,6 @@ def render_one_page(provider: str) -> None:
     render_qa_section(provider, risks)
     agent_outputs = render_agents_section(provider, risks)
     render_export_section(risks, agent_outputs)
-    render_api_section(provider)
 
 
 def render_sidebar_settings() -> str:
@@ -1401,43 +1335,6 @@ def render_sidebar_settings() -> str:
     st.sidebar.markdown(
         "[概览](#overview) · [数据](#data) · [摘要](#summary) · [风险](#risk) · [问答](#qa) · [Agent](#agents) · [导出](#export)"
     )
-    provider = st.sidebar.selectbox("AI 模式", list(LLM_PROVIDERS.keys()))
-    if provider != "Demo Mode":
-        provider_config = LLM_PROVIDERS[provider]
-        api_key_env = provider_config["api_key_env"]
-        api_key_envs = provider_config.get("api_key_envs", [api_key_env])
-        model_env = provider_config["model_env"]
-        base_url_env = provider_config["base_url_env"]
-        st.sidebar.markdown("**临时 API 配置**")
-        st.sidebar.text_input(
-            f"{api_key_env}",
-            type="password",
-            key=f"manual_{api_key_env}",
-            help=f"只保存在当前 Streamlit 会话，不会写入 GitHub。Secrets 支持：{', '.join(api_key_envs)}。",
-        )
-        alias_envs = [name for name in api_key_envs if name != api_key_env]
-        if alias_envs:
-            st.sidebar.caption(f"也支持在 Secrets 中使用：{', '.join(alias_envs)}")
-        st.sidebar.text_input(
-            f"{model_env}",
-            value=get_secret(model_env) or provider_config["default_model"],
-            key=f"manual_{model_env}",
-        )
-        st.sidebar.text_input(
-            f"{base_url_env}",
-            value=get_secret(base_url_env) or provider_config["default_base_url"],
-            key=f"manual_{base_url_env}",
-        )
-        if st.sidebar.button("测试 API 连接"):
-            answer, used_llm = test_llm_connection(provider)
-            if used_llm:
-                st.sidebar.success("API 连接成功")
-                st.sidebar.caption(answer[:120])
-            else:
-                st.sidebar.error("API 连接失败或未配置")
-                st.sidebar.caption(answer[:180])
-    else:
-        st.sidebar.info("Demo Mode 不需要 API key。")
     scenario_names = list(DEMO_SCENARIOS.keys())
     selected_scenario = st.sidebar.selectbox(
         "内置样例数据",
@@ -1452,10 +1349,7 @@ def render_sidebar_settings() -> str:
     if st.sidebar.button("载入所选样例"):
         apply_demo_scenario(selected_scenario)
         st.rerun()
-    st.sidebar.divider()
-    for name in LLM_PROVIDERS:
-        st.sidebar.caption(provider_status_label(name))
-    return provider
+    return ACTIVE_LLM_PROVIDER
 
 
 def render_sidebar() -> str:
