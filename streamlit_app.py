@@ -273,6 +273,24 @@ def read_sample_data() -> pd.DataFrame:
     return pd.DataFrame(DEFAULT_SAMPLE_ROWS)
 
 
+def as_dataframe(value) -> pd.DataFrame:
+    if isinstance(value, pd.DataFrame):
+        return value
+    try:
+        frame = pd.DataFrame(value)
+        return frame if not frame.empty else pd.DataFrame()
+    except Exception:  # noqa: BLE001
+        return pd.DataFrame()
+
+
+def active_dataframe() -> pd.DataFrame:
+    frame = as_dataframe(st.session_state.get("active_df"))
+    if frame.empty:
+        frame = scenario_dataframe(st.session_state.get("demo_scenario", "制造业｜利润修复与回款压力"))
+    st.session_state.active_df = frame
+    return frame
+
+
 def scenario_dataframe(name: str) -> pd.DataFrame:
     scenario = DEMO_SCENARIOS.get(name, DEMO_SCENARIOS["制造业｜利润修复与回款压力"])
     return pd.DataFrame(scenario["rows"])
@@ -306,6 +324,9 @@ def normalize_name(name: object) -> str:
 
 
 def find_column(df: pd.DataFrame, key: str) -> str | None:
+    df = as_dataframe(df)
+    if df.empty:
+        return None
     normalized_columns = {normalize_name(column): column for column in df.columns}
     for alias in FINANCIAL_ALIASES.get(key, []):
         alias_normalized = normalize_name(alias)
@@ -319,6 +340,9 @@ def find_column(df: pd.DataFrame, key: str) -> str | None:
 
 
 def numeric_series(df: pd.DataFrame, key: str) -> pd.Series | None:
+    df = as_dataframe(df)
+    if df.empty:
+        return None
     column = find_column(df, key)
     if column is None:
         return None
@@ -327,6 +351,9 @@ def numeric_series(df: pd.DataFrame, key: str) -> pd.Series | None:
 
 
 def active_year_series(df: pd.DataFrame) -> pd.Series:
+    df = as_dataframe(df)
+    if df.empty:
+        return pd.Series(dtype=str)
     year_column = find_column(df, "year")
     if year_column:
         return df[year_column].astype(str)
@@ -365,6 +392,12 @@ def latest_value(series: pd.Series | None) -> float | None:
     if series is None or series.dropna().empty:
         return None
     return float(series.dropna().iloc[-1])
+
+
+def safe_ratio(numerator: float | None, denominator: float | None) -> float | None:
+    if numerator is None or denominator in (None, 0) or pd.isna(numerator) or pd.isna(denominator):
+        return None
+    return numerator / denominator
 
 
 def extract_pdf_text(file: io.BytesIO) -> str:
@@ -419,6 +452,7 @@ def pick_primary_table(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
 
 def build_financial_summary(df: pd.DataFrame) -> dict[str, str]:
+    df = as_dataframe(df)
     revenue = numeric_series(df, "revenue")
     cogs = numeric_series(df, "cogs")
     gross_profit = numeric_series(df, "gross_profit")
@@ -438,11 +472,11 @@ def build_financial_summary(df: pd.DataFrame) -> dict[str, str]:
     if latest_gross_profit is None and latest_revenue is not None and latest_value(cogs) is not None:
         latest_gross_profit = latest_revenue - latest_value(cogs)
 
-    gross_margin = latest_gross_profit / latest_revenue if latest_revenue else None
-    net_margin = latest_net_profit / latest_revenue if latest_revenue else None
-    liability_ratio = latest_liabilities / latest_assets if latest_assets else None
-    cash_conversion = latest_ocf / latest_net_profit if latest_net_profit else None
-    expense_ratio = latest_value(operating_expense) / latest_revenue if latest_revenue and latest_value(operating_expense) else None
+    gross_margin = safe_ratio(latest_gross_profit, latest_revenue)
+    net_margin = safe_ratio(latest_net_profit, latest_revenue)
+    liability_ratio = safe_ratio(latest_liabilities, latest_assets)
+    cash_conversion = safe_ratio(latest_ocf, latest_net_profit)
+    expense_ratio = safe_ratio(latest_value(operating_expense), latest_revenue)
 
     return {
         "latest_revenue": fmt_money(latest_revenue),
@@ -475,6 +509,7 @@ def scan_text_risks(text: str) -> list[RiskItem]:
 
 
 def detect_financial_risks(df: pd.DataFrame, text: str) -> list[RiskItem]:
+    df = as_dataframe(df)
     risks: list[RiskItem] = []
     revenue_growth = pct_change(numeric_series(df, "revenue"))
     net_profit_growth = pct_change(numeric_series(df, "net_profit"))
@@ -1227,7 +1262,7 @@ def render_data_section() -> None:
 def render_summary_section() -> None:
     st.markdown('<div class="section-anchor" id="summary"></div>', unsafe_allow_html=True)
     st.header("2. 财务摘要与趋势")
-    df = st.session_state.active_df
+    df = active_dataframe()
     summary = build_financial_summary(df)
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("最新收入", summary["latest_revenue"], summary["revenue_growth"])
@@ -1240,6 +1275,17 @@ def render_summary_section() -> None:
     net_profit = numeric_series(df, "net_profit")
     operating_cash_flow = numeric_series(df, "operating_cash_flow")
     operating_expense = numeric_series(df, "operating_expense")
+
+    if revenue is None and net_profit is None and operating_cash_flow is None:
+        numeric_cols = list(df.select_dtypes(include="number").columns)
+        st.info(
+            "当前上传表格不是标准财务汇总表，系统未识别到收入、净利润或经营现金流字段。"
+            "下方将展示可用的数值字段，风险审阅和 RAG 问答仍会结合原表与文本继续分析。"
+        )
+        if numeric_cols:
+            preview_cols = [column for column in df.columns if column in numeric_cols][:6]
+            st.dataframe(df.head(30), width="stretch")
+        return
 
     chart_col1, chart_col2 = st.columns(2)
     with chart_col1:
@@ -1267,7 +1313,8 @@ def render_summary_section() -> None:
 def render_risk_section() -> list[RiskItem]:
     st.markdown('<div class="section-anchor" id="risk"></div>', unsafe_allow_html=True)
     st.header("3. 风险审阅")
-    risks = detect_financial_risks(st.session_state.active_df, st.session_state.document_text)
+    df = active_dataframe()
+    risks = detect_financial_risks(df, st.session_state.document_text)
     risk_df = pd.DataFrame([item.__dict__ for item in risks])
     col1, col2 = st.columns([1.15, 0.85])
     with col1:
@@ -1292,9 +1339,9 @@ def render_qa_section(provider: str, risks: list[RiskItem]) -> None:
     st.write("提问时系统会先检索当前文档和表格摘要，再交给 DeepSeek 生成回答；如果密钥不可用，会自动回退到本地规则回答。")
     question = st.text_input("输入问题", value="这家公司最需要关注的财务风险是什么？")
     if st.button("生成 RAG 回答", type="primary"):
-        st.markdown(answer_question_with_rag(question, st.session_state.active_df, st.session_state.document_text, risks, provider))
+        st.markdown(answer_question_with_rag(question, active_dataframe(), st.session_state.document_text, risks, provider))
     with st.expander("查看当前问题的检索证据"):
-        contexts = retrieve_context(question, st.session_state.document_text, st.session_state.active_df, top_k=4)
+        contexts = retrieve_context(question, st.session_state.document_text, active_dataframe(), top_k=4)
         for index, chunk in enumerate(contexts, start=1):
             st.markdown(f"**证据 {index}**")
             st.write(chunk)
@@ -1304,7 +1351,7 @@ def render_agents_section(provider: str, risks: list[RiskItem]) -> dict[str, str
     st.markdown('<div class="section-anchor" id="agents"></div>', unsafe_allow_html=True)
     st.header("5. Multi-Agent 专业审阅")
     st.write("这里用四个专业角色模拟财务分析、风险审阅、战略分析和报告写作。系统会基于当前文档上下文生成审阅意见。")
-    agent_outputs = run_multi_agent_review(st.session_state.active_df, st.session_state.document_text, risks, provider)
+    agent_outputs = run_multi_agent_review(active_dataframe(), st.session_state.document_text, risks, provider)
     cols = st.columns(2)
     for index, (name, content) in enumerate(agent_outputs.items()):
         with cols[index % 2]:
@@ -1316,9 +1363,10 @@ def render_agents_section(provider: str, risks: list[RiskItem]) -> dict[str, str
 def render_export_section(risks: list[RiskItem], agent_outputs: dict[str, str]) -> None:
     st.markdown('<div class="section-anchor" id="export"></div>', unsafe_allow_html=True)
     st.header("6. 分析底稿导出")
-    brief = create_audit_workpaper(st.session_state.active_df, st.session_state.document_text, risks, agent_outputs)
+    df = active_dataframe()
+    brief = create_audit_workpaper(df, st.session_state.document_text, risks, agent_outputs)
     risk_csv = pd.DataFrame([item.__dict__ for item in risks]).to_csv(index=False).encode("utf-8-sig")
-    data_csv = st.session_state.active_df.to_csv(index=False).encode("utf-8-sig")
+    data_csv = df.to_csv(index=False).encode("utf-8-sig")
     docx_bytes = create_docx_bytes(brief)
     pdf_bytes = create_pdf_bytes(brief)
 
