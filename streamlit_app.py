@@ -4,6 +4,7 @@ import io
 import json
 import os
 import re
+import socket
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -682,8 +683,12 @@ def call_llm(provider: str, prompt: str) -> tuple[str, bool]:
         if exc.code == 404:
             return "DeepSeek API 已发起请求，但模型或接口地址不存在（404）。请检查 DEEPSEEK_MODEL 和 DEEPSEEK_BASE_URL。当前回答已临时使用本地规则生成。", False
         return f"DeepSeek API 已发起请求，但接口返回 HTTP {exc.code}。当前回答已临时使用本地规则生成。", False
+    except (TimeoutError, socket.timeout):
+        return "DeepSeek API 响应超时，当前回答已临时使用本地规则生成。", False
     except (urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError) as exc:
         return f"DeepSeek API 调用未完成，当前回答已临时使用本地规则生成。错误信息：{exc}", False
+    except Exception as exc:
+        return f"DeepSeek API 调用暂时不可用，当前回答已临时使用本地规则生成。错误类型：{type(exc).__name__}", False
 
 
 def test_llm_connection(provider: str) -> tuple[str, bool]:
@@ -801,8 +806,34 @@ def create_brief(df: pd.DataFrame, text: str, risks: list[RiskItem]) -> str:
 """
 
 
-def run_multi_agent_review(df: pd.DataFrame, text: str, risks: list[RiskItem], provider: str = ACTIVE_LLM_PROVIDER) -> dict[str, str]:
+def run_multi_agent_review(
+    df: pd.DataFrame,
+    text: str,
+    risks: list[RiskItem],
+    provider: str = ACTIVE_LLM_PROVIDER,
+    use_llm: bool = False,
+) -> dict[str, str]:
     summary = build_financial_summary(df)
+    local_outputs = {
+        "Accounting Agent": (
+            f"最新收入为 {summary['latest_revenue']}，收入增速 {summary['revenue_growth']}；"
+            f"最新净利润为 {summary['latest_net_profit']}，净利率 {summary['net_margin']}。"
+            "建议继续核对收入确认政策、成本结转、费用归集和非经常性损益。"
+        ),
+        "Risk Review Agent": (
+            f"当前识别到 {len(risks)} 条风险信号。重点关注："
+            + "；".join(f"{item.category}: {item.finding}" for item in risks[:4])
+        ),
+        "Strategy Analyst Agent": (
+            "从经营视角看，需要判断收入恢复是否来自核心业务，同时关注费用投入、客户结构、库存和应收账款对现金流的影响。"
+        ),
+        "Report Writer Agent": (
+            "建议报告结构采用：业务概览、关键财务表现、现金流和资产负债、核心风险、管理层追问、后续审阅清单。"
+        ),
+    }
+    if not use_llm:
+        return local_outputs
+
     risk_lines = "\n".join(f"- {item.category}（{item.level}）：{item.finding}" for item in risks[:6])
     context = "\n".join(retrieve_context("财务表现 风险 审计 现金流 经营策略", text, df, top_k=5))
     prompt = f"""请用四个角色分析财务文档：
@@ -821,25 +852,8 @@ Accounting Agent、Risk Review Agent、Strategy Analyst Agent、Report Writer Ag
 """
     llm_answer, used_llm = call_llm(provider, prompt)
     if used_llm:
-        return {"LLM Multi-Agent Review": llm_answer}
-
-    return {
-        "Accounting Agent": (
-            f"最新收入为 {summary['latest_revenue']}，收入增速 {summary['revenue_growth']}；"
-            f"最新净利润为 {summary['latest_net_profit']}，净利率 {summary['net_margin']}。"
-            "建议继续核对收入确认政策、成本结转、费用归集和非经常性损益。"
-        ),
-        "Risk Review Agent": (
-            f"当前识别到 {len(risks)} 条风险信号。重点关注："
-            + "；".join(f"{item.category}: {item.finding}" for item in risks[:4])
-        ),
-        "Strategy Analyst Agent": (
-            "从经营视角看，需要判断收入恢复是否来自核心业务，同时关注费用投入、客户结构、库存和应收账款对现金流的影响。"
-        ),
-        "Report Writer Agent": (
-            "建议报告结构采用：业务概览、关键财务表现、现金流和资产负债、核心风险、管理层追问、后续审阅清单。"
-        ),
-    }
+        return {"DeepSeek Multi-Agent Review": llm_answer}
+    return {"DeepSeek 状态": llm_answer, **local_outputs}
 
 
 def create_audit_workpaper(df: pd.DataFrame, text: str, risks: list[RiskItem], agent_outputs: dict[str, str]) -> str:
@@ -1350,8 +1364,13 @@ def render_qa_section(provider: str, risks: list[RiskItem]) -> None:
 def render_agents_section(provider: str, risks: list[RiskItem]) -> dict[str, str]:
     st.markdown('<div class="section-anchor" id="agents"></div>', unsafe_allow_html=True)
     st.header("5. Multi-Agent 专业审阅")
-    st.write("这里用四个专业角色模拟财务分析、风险审阅、战略分析和报告写作。系统会基于当前文档上下文生成审阅意见。")
-    agent_outputs = run_multi_agent_review(active_dataframe(), st.session_state.document_text, risks, provider)
+    st.write("这里用四个专业角色模拟财务分析、风险审阅、战略分析和报告写作。默认先展示稳定的本地审阅；如需更完整的 AI 版，可点击按钮调用 DeepSeek。")
+    agent_outputs = run_multi_agent_review(active_dataframe(), st.session_state.document_text, risks, provider, use_llm=False)
+    if st.button("使用 DeepSeek 生成 Multi-Agent 审阅"):
+        with st.spinner("DeepSeek 正在生成专业审阅，如果接口较慢会自动回退..."):
+            agent_outputs = run_multi_agent_review(active_dataframe(), st.session_state.document_text, risks, provider, use_llm=True)
+        if "DeepSeek 状态" in agent_outputs:
+            st.warning(agent_outputs["DeepSeek 状态"])
     cols = st.columns(2)
     for index, (name, content) in enumerate(agent_outputs.items()):
         with cols[index % 2]:
